@@ -3,24 +3,34 @@ use warnings;
 use Test::More;
 use File::Temp qw( tempdir );
 use File::Spec;
-use Cwd qw( abs_path );
+use Cwd qw( cwd abs_path );
 use Git::Repository;
+use t::Util;
 
 plan skip_all => 'Default git binary not found in PATH'
     if !Git::Repository::Command::_has_git('git');
+
+my ($version) = Git::Repository->run('--version') =~ /git version (.*)/g;
+plan skip_all => "these tests require git > 1.6.5, but we only have $version"
+    if !git_minimum_version('1.6.0');
 
 plan tests => my $tests;
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
+my $home = cwd;
 
 # a place to put a git repository
 my $dir = tempdir( CLEANUP => 1 );
 
 # PASS - non-existent directory
-BEGIN { $tests += 2 }
-my $r = Git::Repository->create( init => $dir );
+BEGIN { $tests += 3 }
+chdir $dir;
+my $r = Git::Repository->create( 'init' );
 isa_ok( $r, 'Git::Repository' );
+chdir $home;
+
+is( $r->wc_path, $dir, 'work tree' );
 
 my $gitdir = $r->run( qw( rev-parse --git-dir ) );
 $gitdir = File::Spec->catfile( $dir, $gitdir )
@@ -28,7 +38,7 @@ $gitdir = File::Spec->catfile( $dir, $gitdir )
 is( $gitdir, $r->repo_path, 'git-dir' );
 
 # add file to the index
-my $file = File::Spec->catfile( $r->wc_path, 'readme.txt' );
+my $file = File::Spec->catfile( $dir, 'readme.txt' );
 open my $fh, '>', $file or die "Can't open $file: $!";
 print {$fh} << 'TXT';
 Some readme text
@@ -38,14 +48,20 @@ TXT
 $r->run( add => 'readme.txt' );
 
 # unset all editors
-BEGIN { $tests += 2 }
 delete @ENV{qw( EDITOR VISUAL )};
-ok( !eval { $r->run( var => 'GIT_EDITOR' ); 1; }, 'git var GIT_EDITOR' );
-like(
-    $@,
-    qr/^fatal: Terminal is dumb, but EDITOR unset /,
-    'Git complains about lack of smarts and editor'
-);
+
+SKIP: {
+    BEGIN { $tests += 2 }
+    skip "these tests require git > 1.6.6, but we only have $version", 2
+        if !git_minimum_version('1.6.6');
+
+    ok( !eval { $r->run( var => 'GIT_EDITOR' ); 1; }, 'git var GIT_EDITOR' );
+    like(
+        $@,
+        qr/^fatal: Terminal is dumb, but EDITOR unset /,
+        'Git complains about lack of smarts and editor'
+    );
+}
 
 # with git commit it's not fatal
 BEGIN { $tests += 3 }
@@ -56,7 +72,7 @@ BEGIN { $tests += 3 }
     $cmd->close;
     like(
         $error,
-        qr/^error: Terminal is dumb, but EDITOR unset/,
+        qr/^error: Terminal is dumb/,
         'Git complains about lack of smarts and editor'
     );
 }
