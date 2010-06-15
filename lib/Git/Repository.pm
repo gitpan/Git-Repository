@@ -9,10 +9,10 @@ use Cwd qw( cwd abs_path );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 # a few simple accessors
-for my $attr (qw( repo_path wc_path )) {
+for my $attr (qw( repo_path wc_path wc_subdir )) {
     no strict 'refs';
     *$attr = sub { $_[0]{$attr} };
 }
@@ -26,8 +26,7 @@ sub new {
 
     # setup default options
     my ( $repo_path, $wc_path ) = @arg{qw( repository working_copy )};
-
-    croak "'repository' or 'working_copy' argument required"
+    $wc_path = cwd()
         if !defined $repo_path && !defined $wc_path;
 
     # create the object
@@ -62,6 +61,17 @@ sub new {
         = eval { abs_path( $self->run(qw( rev-parse --git-dir )) ) } || '';
     croak "fatal: Not a git repository: $repo_path"
         if $self->{repo_path} ne $gitdir;
+
+    # ensure wc_path is the top-level directory of the working copy
+    if ( defined $self->{wc_path} ) {
+        my $cdup = Git::Repository->run( qw( rev-parse --show-cdup ),
+            { cwd => $self->{wc_path} } );
+        if ($cdup) {
+            $self->{wc_subdir} = $self->{wc_path};
+            $self->{wc_path}
+                = abs_path( File::Spec->catdir( $self->{wc_path}, $cdup ) );
+        }
+    }
 
     return $self;
 }
@@ -226,6 +236,13 @@ Returns the repository path.
 =head2 wc_path()
 
 Returns the working copy path.
+Used as current working directory by C<Git::Repository::Command>.
+
+=head2 wc_subdir()
+
+Return the (relative) subdirectory path of the working copy.
+If defined, will be used as current working directory by
+C<Git::Repository::Command>, instead of C<wc_path>.
 
 =head1 HOW-TO
 

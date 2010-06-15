@@ -67,6 +67,39 @@ isa_ok( $r, 'Git::Repository' );
 is( $r->repo_path, $gitdir, '... correct repo_path' );
 is( $r->wc_path,   $dir,    '... correct wc_path' );
 
+# PASS - new() on a subdir of the working copy
+BEGIN { $tests += 5 }
+my $subdir = File::Spec->catdir( $dir, 'sub' );
+mkpath $subdir;
+ok( $r = eval { Git::Repository->new( working_copy => $subdir ); },
+    "new( repository => $i/sub )" );
+diag $@ if $@;
+isa_ok( $r, 'Git::Repository' );
+is( $r->repo_path, $gitdir, '... correct repo_path' );
+is( $r->wc_path,   $dir,    '... correct wc_path' );
+is( $r->wc_subdir, $subdir, '... correct wc_subdir' );
+
+# PASS - new() without arguments
+BEGIN { $tests += 4 }
+chdir $dir;
+ok( $r = eval { $r = Git::Repository->new(); }, "new() => $i" );
+diag $@ if $@;
+isa_ok( $r, 'Git::Repository' );
+is( $r->repo_path, $gitdir, '... correct repo_path' );
+is( $r->wc_path,   $dir,    '... correct wc_path' );
+chdir $home;
+
+# PASS - new() without arguments from subdir
+BEGIN { $tests += 5 }
+chdir $subdir;
+ok( $r = eval { $r = Git::Repository->new(); }, "new() => $i/sub" );
+diag $@ if $@;
+isa_ok( $r, 'Git::Repository' );
+is( $r->repo_path, $gitdir, '... correct repo_path' );
+is( $r->wc_path,   $dir,    '... correct wc_path' );
+is( $r->wc_subdir, $subdir, '... correct wc_subdir' );
+chdir $home;
+
 # FAIL - command doesn't initialize a git repository
 BEGIN { $tests += 2 }
 ok( !( $r = eval { Git::Repository->create('--version'); } ),
