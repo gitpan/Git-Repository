@@ -11,7 +11,7 @@ plan skip_all => 'Default git binary not found in PATH'
     if !Git::Repository::Command::_has_git('git');
 
 my ($version) = Git::Repository->run('--version') =~ /git version (.*)/g;
-plan skip_all => "these tests require git > 1.6.5, but we only have $version"
+plan skip_all => "these tests require git > 1.6.0, but we only have $version"
     if !git_minimum_version('1.6.0');
 
 plan tests => my $tests;
@@ -21,7 +21,7 @@ delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
 my $home = cwd;
 
 # a place to put a git repository
-my $dir = tempdir( CLEANUP => 1 );
+my $dir = abs_path( tempdir( CLEANUP => 1 ) );
 
 # PASS - non-existent directory
 BEGIN { $tests += 3 }
@@ -163,3 +163,9 @@ ok( !eval {
 );
 like( $@, qr/^Can't chdir to $dir/, '... expected error message' );
 
+# now work with GIT_DIR and GIT_WORK_TREE only
+BEGIN { $tests += 1 }
+$ENV{GIT_DIR} = $gitdir;
+
+my $got = Git::Repository->run( log => '-1', '--pretty=format:%H' );
+is( $got, $commit, 'git log -1' );
