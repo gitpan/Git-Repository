@@ -10,7 +10,7 @@ use Cwd qw( cwd abs_path );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 # a few simple accessors
 for my $attr (qw( repo_path wc_path wc_subdir )) {
@@ -81,7 +81,7 @@ sub create {
     my ( $class, @args ) = @_;
     my @output = $class->run(@args);
     return $class->new( repository => $1 )
-        if $output[0] =~ /^Initialized empty Git repository in (.*)/;
+        if $output[0] =~ /(?:Reinitialized existing|Initialized empty) Git repository in (.*)/;
     return;
 }
 

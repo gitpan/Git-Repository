@@ -156,7 +156,7 @@ is( $r->wc_path,   undef, '... correct wc_path' );
 # these tests requires git version > 1.6.5
 SKIP: {
     skip "these tests require git > 1.6.5, but we only have $version", $extra
-        if !git_minimum_version( '1.6.5' );
+        if !git_minimum_version('1.6.5');
 
     # FAIL - init a dir that is a file
     BEGIN { $extra += 3 }
@@ -166,5 +166,22 @@ SKIP: {
         "create( init => $i ) FAILED" );
     is( $r, undef, "create( init => $i ) did not create a repository" );
     like( $@, qr/^fatal: /, 'fatal error from git' );
-}
 
+    # PASS - create() on an existing repository
+    BEGIN { $extra += 8 }
+    $dir = next_dir;
+    $gitdir = File::Spec->catdir( $dir, '.git' );
+    ok( $r = eval { Git::Repository->create( init => $dir ) },
+        "create( init => $i ) " );
+    diag $@ if $@;
+    isa_ok( $r, 'Git::Repository' );
+    is( $r->repo_path, $gitdir, '... correct repo_path' );
+    is( $r->wc_path,   $dir,    '... correct wc_path' );
+
+    ok( $r = eval { Git::Repository->create( init => $dir ) },
+        "create( init => $i ) again" );
+    diag $@ if $@;
+    isa_ok( $r, 'Git::Repository' );
+    is( $r->repo_path, $gitdir, '... correct repo_path' );
+    is( $r->wc_path,   $dir,    '... correct wc_path' );
+}
