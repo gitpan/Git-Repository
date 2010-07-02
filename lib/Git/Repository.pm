@@ -7,15 +7,16 @@ use 5.006;
 use Carp;
 use File::Spec;
 use Cwd qw( cwd abs_path );
+use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 # a few simple accessors
-for my $attr (qw( repo_path wc_path wc_subdir )) {
+for my $attr (qw( repo_path wc_path wc_subdir options )) {
     no strict 'refs';
-    *$attr = sub { $_[0]{$attr} };
+    *$attr = sub { return ref $_[0] ? $_[0]{$attr} : () };
 }
 
 #
@@ -23,16 +24,22 @@ for my $attr (qw( repo_path wc_path wc_subdir )) {
 #
 
 sub new {
-    my ( $class, %arg ) = @_;
-
-    # setup default options
-    my ( $repo_path, $wc_path ) = @arg{qw( repository working_copy )};
-    $wc_path = cwd()
-        if !defined $repo_path && !defined $wc_path;
+    my ( $class, @arg ) = @_;
 
     # create the object
     my $self = bless {}, $class;
 
+    # take out the option hash
+    my %arg = grep { !( ref eq 'HASH' ? $self->{options} ||= $_ : 0 ) } @arg;
+
+    # setup default options
+    my ( $repo_path, $wc_path ) = delete @arg{qw( repository working_copy )};
+    $wc_path = cwd()
+        if !defined $repo_path && !defined $wc_path;
+
+    croak "Unknown parameters: @{[keys %arg]}" if keys %arg;
+
+    # compute the various paths
     if ( defined $repo_path ) {
         croak "directory not found: $repo_path"
             if !-d $repo_path;
@@ -126,6 +133,56 @@ sub run {
     return wantarray ? @output : join "\n", @output;
 }
 
+#
+# version comparison methods
+#
+sub version {
+    return ( $_[0]->run('--version') =~ /git version (.*)/g )[0];
+}
+
+sub _version_eq {
+    my ( $v1, $v2 ) = @_;
+    my @v1 = split /\./, $v1;
+    my @v2 = split /\./, $v2;
+
+    return '' if @v1 != @v2;
+    $v1[$_] ne $v2[$_] and return '' for 0 .. $#v1;
+    return 1;
+}
+
+sub _version_gt {
+    my ( $v1, $v2 ) = @_;
+    my @v1 = split /\./, $v1;
+    my @v2 = split /\./, $v2;
+
+    # skip to the first difference
+    shift @v1, shift @v2 while @v1 && @v2 && $v1[0] eq $v2[0];
+    ( $v1, $v2 ) = ( $v1[0] || 0, $v2[0] || 0 );
+
+    # rcX is less than any number
+    return looks_like_number($v1)
+             ? looks_like_number($v2) ? $v1 > $v2 : 1
+             : looks_like_number($v2) ? ''        : $v1 gt $v2;
+}
+
+# every op is a combination of eq and gt
+sub version_eq { return _version_eq( $_[0]->version, $_[1] ); }
+sub version_ne { return !_version_eq( $_[0]->version, $_[1] ); }
+sub version_gt { return _version_gt( $_[0]->version, $_[1] ); }
+sub version_le { return !_version_gt( $_[0]->version, $_[1] ); }
+
+sub version_lt {
+    my $v;
+    return !_version_eq( $v = $_[0]->version, $_[1] )
+        && !_version_gt( $v, $_[1] );
+}
+
+sub version_ge {
+    my $v;
+    return _version_eq( $v = $_[0]->version, $_[1] )
+        || _version_gt( $v, $_[1] );
+}
+
 1;
 
 __END__
@@ -160,6 +217,13 @@ Git::Repository - Perl interface to Git repositories
     # - obtain a Git::Repository::Command object
     $cmd = $r->command(@cmd);
 
+    # obtain version information
+    my $version = $r->version();
+
+    if ( $r->version_gt('1.6.5') ) {
+        ...;
+    }
+
 =head1 DESCRIPTION
 
 C<Git::Repository> is a Perl interface to Git, allowing scripted
@@ -186,7 +250,7 @@ using the C<env> option.
 
 C<Git::Repository> supports the following methods:
 
-=head2 new( %args )
+=head2 new( %args, $options )
 
 Create a new C<Git::Repository> object, based on an existing Git repository.
 
@@ -206,6 +270,27 @@ The location of the git working copy (for a non-bare repository).
 
 At least one of the two parameters is required. Usually, one is enough,
 as C<Git::Repository> can work out where the other directory (if any) is.
+
+C<new()> also accepts a reference to an option hash, that will be
+automatically used by C<Git::Repository::Command> when working with
+the corresponding C<Git::Repository> instance.
+
+So this:
+
+    my $options = {
+        git => '/path/to/some/other/git',
+        env => {
+            GIT_COMMITTER_EMAIL => 'book@cpan.org',
+            GIT_COMMITTER_NAME  => 'Philippe Bruhat (BooK)',
+        },
+    };
+    my $r = Git::Repository->new(
+        working_copy => $dir,
+        $options
+    );
+
+will be equivalent to having any option hash that will be passed to
+C<run()> or C<command()> be pre-filled with these options.
 
 =head2 create( @cmd )
 
@@ -250,11 +335,77 @@ Return the (relative) subdirectory path of the working copy.
 If defined, will be used as current working directory by
 C<Git::Repository::Command>, instead of C<wc_path>.
 
+=head2 options()
+
+Return the option hash that was passed to C<< Git::Repository->new() >>.
+
+=head2 version()
+
+Return the version of git, as given by C<git --version>.
+
+=head2 Version-comparison "operators"
+
+Git evolves very fast, and new features are constantly added to it.
+To facilitate the creation of programs that can properly handle the
+wide variety of Git versions seen in the wild, a number of version
+comparison "operators" are available.
+
+They are named C<version_I<op>> where I<op> is the equivalent of the Perl
+operators C<lt>, C<gt>, C<le>, C<ge>, C<eq>, C<ne>. They return a boolean
+value, obtained by comparing the version of the git binary and the
+version string passed as parameter.
+
+The methods are:
+
+=over 4
+
+=item version_lt( $version )
+
+=item version_gt( $version )
+
+=item version_le( $version )
+
+=item version_ge( $version )
+
+=item version_eq( $version )
+
+=item version_ne( $version )
+
+=back
+
+Note that there are a small number of cases where the version comparison
+operators will I<not> compare versions correctly for I<very old> versions of
+Git. Typical example is C<1.0.0a gt 1.0.0> which should return true, but
+doesn't. It actually only concerns cases when it is needed to compare
+and the last significant bit of very close (and very old) version numbers.
+
+However, this only concerns Git versions older than C<1.4.0-rc1> (June 2006).
+It wasn't worth the trouble to try and correctly compare older version
+numbers.
+
+Other issues exist when comparing development version numbers with one
+another. For example, C<1.7.1.1> is greater than both C<1.7.1.1.gc8c07>
+and C<1.7.1.1.g5f35a>, and C<1.7.1> is lower than both. Obviously,
+C<1.7.1.1.gc8c07> will compare as greater than C<1.7.1.1.g5f35a>
+(asciibetically), but in fact these two version numbers cannot be
+compared, as they are two siblings children of the commit tagged
+C<v1.7.1>).
+
+If one was to compute the set of all possible version numbers (as returned
+by C<git --version>) for all git versions that can be compiled from each
+commit in the F<git.git> repository, this would not be a totally ordered
+set. Big deal.
+
 =head1 HOW-TO
 
 =head2 Create a new repository
 
+    # git version 1.6.5 and above
     my $r = Git::Repository->create( init => $dir );
+
+    # any older git will need two steps
+    chdir $dir;
+    my $r = Git::Repository->create( 'init' );
 
 =head2 Clone a repository
 

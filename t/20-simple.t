@@ -5,20 +5,27 @@ use File::Temp qw( tempdir );
 use File::Spec;
 use Cwd qw( cwd abs_path );
 use Git::Repository;
-use t::Util;
 
 plan skip_all => 'Default git binary not found in PATH'
     if !Git::Repository::Command::_has_git('git');
 
-my ($version) = Git::Repository->run('--version') =~ /git version (.*)/g;
+my $version = Git::Repository->version;
 plan skip_all => "these tests require git > 1.6.0, but we only have $version"
-    if !git_minimum_version('1.6.0');
+    if Git::Repository->version_lt('1.6.0');
 
 plan tests => my $tests;
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
 my $home = cwd;
+
+# small helper sub
+sub update_file {
+    my ( $file, $content ) = @_;
+    open my $fh, '>', $file or die "Can't open $file: $!";
+    print {$fh} $content;
+    close $fh;
+}
 
 # a place to put a git repository
 my $dir = abs_path( tempdir( CLEANUP => 1 ) );
@@ -43,9 +50,7 @@ ok( ! eval { $r->run( qw( commit --bonk ) ); }, "FAIL with usage text" );
 like( $@, qr/^usage: git commit/m, '... expected usage message' );
 
 # add file to the index
-my $file = File::Spec->catfile( $dir, 'readme.txt' );
-open my $fh, '>', $file or die "Can't open $file: $!";
-print {$fh} << 'TXT';
+update_file( File::Spec->catfile( $dir, 'readme.txt' ), << 'TXT' );
 Some readme text
 for our example
 TXT
@@ -58,7 +63,7 @@ delete @ENV{qw( EDITOR VISUAL )};
 SKIP: {
     BEGIN { $tests += 2 }
     skip "these tests require git > 1.6.6, but we only have $version", 2
-        if !git_minimum_version('1.6.6');
+        if Git::Repository->version_lt('1.6.6');
 
     ok( !eval { $r->run( var => 'GIT_EDITOR' ); 1; }, 'git var GIT_EDITOR' );
     like(
@@ -156,7 +161,8 @@ BEGIN { $tests += 2 }
 ok( !eval {
         $r->run(
             log => '-1',
-            { cwd => File::Spec->catdir( $dir, 'not-there' ) }
+            { cwd => File::Spec->catdir( $dir, 'not-there' ) },
+            bless( {}, 'Foo' )    # will be ignored silently
         );
     },
     'Fail with option { cwd => non-existent dir }'
@@ -187,6 +193,58 @@ $r = Git::Repository->new();
 isa_ok( $r, 'Git::Repository' );
 chdir $home;
 
-is( $r->wc_path, $dir, 'work tree' );
+is( $r->wc_path,   $dir,    'work tree' );
 is( $r->repo_path, $gitdir, 'git dir' );
+
+# PASS - use an option HASH
+BEGIN { $tests += 3 }
+is( Git::Repository->options(), undef, 'No options on the class' );
+$r = Git::Repository->new(
+    working_copy => $dir,
+    {   env => {
+            GIT_AUTHOR_NAME  => 'Example author',
+            GIT_AUTHOR_EMAIL => 'author@example.com'
+        }
+    },
+    { git => '/bin/false' },    # second option hash will be ignored silently
+);
+update_file( my $file = File::Spec->catfile( $dir, 'other.txt' ), << 'TXT' );
+Some other text
+forcing an author
+TXT
+$r->run( add => $file );
+$r->run( commit => '-m', 'Test option hash in new()' );
+my ($author) = grep {/^Author:/} $r->run( log => '-1' );
+is( $author,
+    'Author: Example author <author@example.com>',
+    'Option hash in new()'
+);
+
+update_file( $file, << 'TXT' );
+Some other text
+forcing another author
+TXT
+$r->run(
+    commit => '-a',
+    '-m', 'Test option hash in run()',
+    { env => { GIT_AUTHOR_EMAIL => 'example@author.com' } },
+    bless( { wc_path => 'TEH FAIL' }, 'Git::Repository' ),  # ignored silently
+    { env => { GIT_AUTHOR_EMAIL => 'fail@fail.com' } },     # ignored silently
+);
+($author) = grep {/^Author:/} $r->run( log => '-1' );
+is( $author,
+    'Author: Example author <example@author.com>',
+    'Option hash in new() and run()'
+);
+
+# PASS - use an option HASH (no env key)
+BEGIN { $tests += 1 }
+( $parent, $tree ) = split /-/, $r->run( log => '--pretty=format:%H-%T', -1 );
+$r = Git::Repository->new(
+    working_copy => $dir,
+    { input => 'a dumb way to set log message' },
+);
+$commit = $r->run( 'commit-tree', $tree, '-p', $parent );
+my $log = $r->run( log => '--pretty=format:%s', -1, $commit );
+is( $log, 'a dumb way to set log message', 'Option hash in new() worked' );
 
