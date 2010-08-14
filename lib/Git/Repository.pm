@@ -11,12 +11,26 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 
 # a few simple accessors
-for my $attr (qw( repo_path wc_path wc_subdir options )) {
+for my $attr (qw( git_dir work_tree options )) {
     no strict 'refs';
     *$attr = sub { return ref $_[0] ? $_[0]{$attr} : () };
+}
+
+# backward compatible aliases
+*repo_path = \&git_dir;
+*wc_path   = \&work_tree;
+
+# helper function
+sub _abs_path {
+    my ( $base, $path ) = @_;
+    return abs_path(
+        File::Spec->file_name_is_absolute($path)
+        ? $path
+        : File::Spec->catdir( $base, $path )
+    );
 }
 
 #
@@ -31,55 +45,79 @@ sub new {
 
     # take out the option hash
     my %arg = grep { !( ref eq 'HASH' ? $self->{options} ||= $_ : 0 ) } @arg;
+    my $options = $self->{options} ||= {};
 
     # setup default options
-    my ( $repo_path, $wc_path ) = delete @arg{qw( repository working_copy )};
-    $wc_path = cwd()
-        if !defined $repo_path && !defined $wc_path;
+    # accept older for backward compatibility
+    my ($git_dir) = grep {defined} delete @arg{qw( git_dir repository )};
+    my ($work_tree) = grep {defined} delete @arg{qw( work_tree working_copy )};
 
     croak "Unknown parameters: @{[keys %arg]}" if keys %arg;
 
     # compute the various paths
-    if ( defined $repo_path ) {
-        croak "directory not found: $repo_path"
-            if !-d $repo_path;
-        $self->{repo_path} = abs_path($repo_path);
-    }
+    my $cwd = defined $options->{cwd} ? $options->{cwd} : cwd();
 
-    if ( defined $wc_path ) {
-        croak "directory not found: $wc_path"
-            if !-d $wc_path;
-        $self->{wc_path} = abs_path($wc_path);
-        if ( !defined $self->{repo_path} ) {
-            $self->{repo_path} = $self->run(qw( rev-parse --git-dir ));
-            $self->{repo_path}
-                = File::Spec->catdir( $self->{wc_path}, $self->{repo_path} )
-                if !File::Spec->file_name_is_absolute( $self->{repo_path} );
+    # if work_tree or git_dir are relative, they are relative to cwd
+    -d ( $git_dir = _abs_path( $cwd, $git_dir ) )
+        or croak "directory not found: $git_dir"
+        if defined $git_dir;
+    -d ( $work_tree = _abs_path( $cwd, $work_tree ) )
+        or croak "directory not found: $work_tree"
+        if defined $work_tree;
+
+    # if no cwd option given, assume we want to work in work_tree
+    $cwd = defined $options->{cwd} ? $options->{cwd}
+         : defined $work_tree      ? $work_tree
+         :                           cwd();
+
+    # we'll always have to compute it if not defined
+    $self->{git_dir}
+        = _abs_path( $cwd,
+        Git::Repository->run( qw( rev-parse --git-dir ), { cwd => $cwd } ) )
+        if !defined $git_dir;
+
+    # there are 4 possible cases
+    if ( !defined $work_tree ) {
+
+        # 1) no path defined: trust git with the values
+        # $self->{git_dir} already computed
+
+        # 2) only git_dir was given: trust it
+        $self->{git_dir} = $git_dir if defined $git_dir;
+
+        # in a non-bare repository, the work tree is just above the gitdir
+        if ( $self->run(qw( rev-parse --is-bare-repository )) eq 'false' ) {
+            $self->{work_tree}
+                = _abs_path( $self->{git_dir}, File::Spec->updir );
         }
     }
+    else {
 
-    # this is a non-bare repository, the work tree is just above the gitdir
-    elsif ( $self->run(qw( rev-parse --is-bare-repository )) eq 'false' ) {
-        $self->{wc_path} = abs_path(
-            File::Spec->catdir( $self->{repo_path}, File::Spec->updir ) );
+        # 3) only work_tree defined:
+        if ( !defined $git_dir ) {
+
+            # $self->{git_dir} already computed
+
+            # check work_tree is the top-level work tree, and not a subdir
+            my $cdup = Git::Repository->run( qw( rev-parse --show-cdup ),
+                { cwd => $cwd } );
+            $self->{work_tree}
+                = $cdup ? _abs_path( $work_tree, $cdup ) : $work_tree;
+        }
+
+        # 4) both path defined: trust the values
+        else {
+            $self->{git_dir}   = $git_dir;
+            $self->{work_tree} = $work_tree;
+        }
     }
 
     # sanity check
     my $gitdir
-        = eval { abs_path( $self->run(qw( rev-parse --git-dir )) ) } || '';
-    croak "fatal: Not a git repository: $repo_path"
-        if $self->{repo_path} ne $gitdir;
-
-    # ensure wc_path is the top-level directory of the working copy
-    if ( defined $self->{wc_path} ) {
-        my $cdup = Git::Repository->run( qw( rev-parse --show-cdup ),
-            { cwd => $self->{wc_path} } );
-        if ($cdup) {
-            $self->{wc_subdir} = $self->{wc_path};
-            $self->{wc_path}
-                = abs_path( File::Spec->catdir( $self->{wc_path}, $cdup ) );
-        }
-    }
+        = eval { _abs_path( $cwd, $self->run(qw( rev-parse --git-dir )) ) }
+        || '';
+    croak "fatal: Not a git repository: $self->{git_dir}"
+        if $self->{git_dir} ne $gitdir;
 
     return $self;
 }
@@ -87,9 +125,22 @@ sub new {
 sub create {
     my ( $class, @args ) = @_;
     my @output = $class->run(@args);
-    return $class->new( repository => $1 )
-        if $output[0] =~ /(?:Reinitialized existing|Initialized empty) Git repository in (.*)/;
-    return;
+    my $gitdir;
+
+    # git init or clone until v1.7.1 (inclusive)
+    if ( $output[0] =~ /^(?:Reinitialized existing|Initialized empty) Git repository in (.*)/ ) {
+        $gitdir = $1;
+    }
+
+    # git clone after v1.7.1
+    elsif ( $output[0] =~ /Cloning into (bare repository )?(.*)\.\.\./ ) {
+        $gitdir = $1 ? $2 : File::Spec->catdir( $2, '.git' );
+    }
+
+    # some other command (no git repository created)
+    else {return}
+
+    return $class->new( git_dir => $gitdir, grep { ref eq 'HASH' } @args );
 }
 
 #
@@ -196,10 +247,10 @@ Git::Repository - Perl interface to Git repositories
     use Git::Repository;
 
     # start from an existing repository
-    $r = Git::Repository->new( repository => $gitdir );
+    $r = Git::Repository->new( git_dir => $gitdir );
 
     # start from an existing working copy
-    $r = Git::Repository->new( working_copy => $dir );
+    $r = Git::Repository->new( work_tree => $dir );
 
     # or init our own repository
     $r = Git::Repository->create( init => $dir, ... );
@@ -220,6 +271,7 @@ Git::Repository - Perl interface to Git repositories
     # obtain version information
     my $version = $r->version();
 
+    # compare current git version
     if ( $r->version_gt('1.6.5') ) {
         ...;
     }
@@ -242,7 +294,7 @@ directory>) will be obtained from the options and environment.
 
 The C<GIT_DIR> and C<GIT_WORK_TREE> environment variables are special:
 if the command is run in the context of a C<Git::Repository> object, they
-will be overriden by the object's C<repo_path> and C<wc_path> attributes,
+will be overriden by the object's C<git_dir> and C<work_tree> attributes,
 respectively. It is however still possible to override them if necessary,
 using the C<env> option.
 
@@ -258,13 +310,22 @@ Parameters are:
 
 =over 4
 
-=item repository => $gitdir
+=item git_dir => $gitdir
 
 The location of the git repository (F<.git> directory or equivalent).
 
-=item working_copy => $dir
+For backward compatibility with versions 1.06 and before, C<repository>
+is accepted in place of C<git_dir> (but the newer takes precedence).
+
+=item work_tree => $dir
 
 The location of the git working copy (for a non-bare repository).
+
+If C<work_tree> actually points to a subdirectory of the work tree,
+C<Git::Repository> will automatically recompute the proper value.
+
+For backward compatibility with versions 1.06 and before, C<working_copy>
+is accepted in place of C<work_tree> (but the newer takes precedence).
 
 =back
 
@@ -285,7 +346,7 @@ So this:
         },
     };
     my $r = Git::Repository->new(
-        working_copy => $dir,
+        work_tree => $dir,
         $options
     );
 
@@ -298,8 +359,12 @@ Runs a repository initializing command (like C<init> or C<clone>) and
 returns a C<Git::Repository> object pointing to it. C<@cmd> can contain
 a hashref with options (see L<Git::Repository::Command>.
 
-This method runs the command and parses the first line as
-C<Initialized empty Git repository in $dir> to find the repository path.
+This method runs the command and parses the first line to find the
+repository path. Using the option I<-q> on such commands makes no sense,
+as it will prevent C<create()> to parse their output.
+
+C<create()> also accepts a reference to an option hash, that will be
+used to setup the returned C<Git::Repository> instance.
 
 =head2 command( @cmd )
 
@@ -320,20 +385,24 @@ If the git command printed anything on stderr, it will be printed as
 warnings. If the git sub-process exited with status C<128> (fatal error),
 C<run()> will C<die()>.
 
-=head2 repo_path()
+=head2 git_dir()
 
 Returns the repository path.
 
-=head2 wc_path()
+=head2 repo_path()
+
+For backward compatibility with versions 1.06 and before, C<repo_path()>
+it provided as an alias to C<git_dir()>.
+
+=head2 work_tree()
 
 Returns the working copy path.
 Used as current working directory by C<Git::Repository::Command>.
 
-=head2 wc_subdir()
+=head2 wc_path()
 
-Return the (relative) subdirectory path of the working copy.
-If defined, will be used as current working directory by
-C<Git::Repository::Command>, instead of C<wc_path>.
+For backward compatibility with versions 1.06 and before, C<wc_path()>
+it provided as an alias to C<work_tree()>.
 
 =head2 options()
 
@@ -423,7 +492,7 @@ if something was printed on it. To be able to actually capture error
 output, C<command()> must be used.
 
     my $cmd = $r->command( @cmd );
-    my @errput = $cmd->{stderr}->getlines();
+    my @errput = $cmd->stderr->getlines();
     $cmd->close;
 
 C<run()> also captures all output at once, which can lead to unecessary
@@ -431,7 +500,7 @@ memory consumption when capturing the output of some really verbose
 commands.
 
     my $cmd = $r->command( log => '--pretty=oneline', '--all' );
-    my $log = $cmd->{stdout};
+    my $log = $cmd->stdout;
     while (<$log>) {
         ...;
     }
@@ -462,6 +531,17 @@ Use the C<env> option:
     );
 
 See L<Git::Repository::Command> for other available options.
+
+=head2 Process the output of B<git log>
+
+When creating a tool that needs to process the output of B<git log>,
+you should always define precisely the expected format using the
+I<--pretty> option, and choose a format that is easy to parse.
+
+Assuming B<git log> will output the default format will eventually
+lead to problems, for example when the user's git configuration defines
+C<format.pretty> to be something else than the default of C<medium>.
+
 
 =head1 OTHER PERL GIT WRAPPERS
 

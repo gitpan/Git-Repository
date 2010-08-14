@@ -12,6 +12,16 @@ use File::Spec;
 use IO::Handle;
 use Config;
 
+# a few simple accessors
+for my $attr (qw( pid stdin stdout stderr exit signal core )) {
+    no strict 'refs';
+    *$attr = sub { return $_[0]{$attr} };
+}
+for my $attr (qw( cmdline )) {
+    no strict 'refs';
+    *$attr = sub { return @{ $_[0]{$attr} } };
+}
+
 # CAN I HAS GIT?
 sub _has_git {
     my ($binary) = @_;
@@ -62,39 +72,35 @@ sub new {
     local %ENV = %ENV;
 
     # possibly useful paths
-    my ( $repo_path, $wc_path, $wc_subdir );
+    my ( $git_dir, $work_tree );
 
     # a Git::Repository object will give more context
     if ($r) {
 
         # get some useful paths
-        ( $repo_path, $wc_path, $wc_subdir, my $repo_o )
-            = ( $r->repo_path, $r->wc_path, $r->wc_subdir, $r->options );
+        ( $git_dir, $work_tree, my $repo_o )
+            = ( $r->git_dir, $r->work_tree, $r->options );
 
         # merge the option hashes
-        if ($repo_o) {
-            $o = {
-                %$repo_o, %$o,
-                exists $repo_o->{env} && exists $o->{env}
-                ? ( env => { %{ $repo_o->{env} }, %{ $o->{env} } } )
-                : ()
-            };
-        }
+        $o = {
+            %$repo_o, %$o,
+            exists $repo_o->{env} && exists $o->{env}
+            ? ( env => { %{ $repo_o->{env} }, %{ $o->{env} } } )
+            : ()
+        };
 
         # setup our %ENV
         delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
-        $ENV{GIT_DIR} = $repo_path
-            if defined $repo_path;
-        $ENV{GIT_WORK_TREE} = $wc_path
-            if defined $repo_path && defined $wc_path;
+        $ENV{GIT_DIR}       = $git_dir;
+        $ENV{GIT_WORK_TREE} = $work_tree
+            if defined $work_tree;
     }
 
     # chdir to the expected directory
     my $orig = cwd;
     my $dest
         = defined $o->{cwd}                       ? $o->{cwd}
-        : defined $wc_subdir && length $wc_subdir ? $wc_subdir
-        : defined $wc_path   && length $wc_path   ? $wc_path
+        : defined $work_tree && length $work_tree ? $work_tree
         :                                           undef;
     if ( defined $dest ) {
         chdir $dest or croak "Can't chdir to $dest: $!";
@@ -128,10 +134,11 @@ sub new {
 
     # create the object
     return bless {
-        pid    => $pid,
-        stdin  => $in,
-        stdout => $out,
-        stderr => $err,
+        cmdline => [ $git, @cmd ],
+        pid     => $pid,
+        stdin   => $in,
+        stdout  => $out,
+        stderr  => $err,
     }, $class;
 }
 
@@ -179,19 +186,19 @@ Git::Repository::Command - Command objects for running git
     # options can be passed as a hashref
     $cmd = Git::Repository::Command->( $r, @cmd, \%option );
 
-    # $cmd is basically a hash
-    $cmd->{stdin};     # filehandle to the process' stdin (write)
-    $cmd->{stdout};    # filehandle to the process' stdout (read)
-    $cmd->{stderr};    # filehandle to the process' stdout (read)
-    $cmd->{pid};       # pid of the child process
+    # $cmd is basically a hash, with keys / accessors
+    $cmd->stdin();     # filehandle to the process' stdin (write)
+    $cmd->stdout();    # filehandle to the process' stdout (read)
+    $cmd->stderr();    # filehandle to the process' stdout (read)
+    $cmd->pid();       # pid of the child process
 
     # done!
     $cmd->close();
 
     # exit information
-    $cmd->{exit};      # exit status
-    $cmd->{signal};    # signal
-    $cmd->{core};      # core dumped? (boolean)
+    $cmd->exit();      # exit status
+    $cmd->signal();    # signal
+    $cmd->core();      # core dumped? (boolean)
 
 =head1 DESCRIPTION
 
@@ -235,25 +242,71 @@ A string that is send to the git command standard input, which is then closed.
 
 =back
 
+If the C<Git::Repository> object has its own option hash, it will be used
+to provide default values that can be overriden by the actual option hash
+passed to C<new()>.
+
 If several option hashes are passed to C<new()>, only the first one will
 be used.
 
-The hash returned by C<new()> has the following keys:
+The C<Git::Repository::Command> object returned by C<new()> has a 
+number of attributes defined (see below).
 
-    $cmd->{stdin};     # filehandle to the process' stdin (write)
-    $cmd->{stdout};    # filehandle to the process' stdout (read)
-    $cmd->{stderr};    # filehandle to the process' stdout (read)
-    $cmd->{pid};       # pid of the child process
 
 =head2 close()
 
 Close all pipes to the child process, and collects exit status, etc.
+and defines a number of attributes (see below).
 
-This adds the following keys to the hash:
 
-    $cmd->{exit};      # exit status
-    $cmd->{signal};    # signal
-    $cmd->{core};      # core dumped? (boolean)
+=head2 Accessors
+
+The attributes of a C<Git::Repository::Command> object are also accessible
+through a number of accessors.
+
+The object returned by C<new()> will have the following attributes defined:
+
+=over 4
+
+=item cmdline()
+
+Return the command-line actually executed, as a list of strings.
+
+=item pid()
+
+The PID of the underlying B<git> command.
+
+=item stdin()
+
+A filehandle opened in write mode to the child process' standard input.
+
+=item stdout()
+
+A filehandle opened in read mode to the child process' standard output.
+
+=item stderr()
+
+A filehandle opened in read mode to the child process' standard error output. 
+
+=back
+
+After the call to C<close()>, the following attributes will be defined:
+
+=over 4
+
+=item exit()
+
+The exit status of the underlying B<git> command.
+
+=item core()
+
+A boolean value indicating if the command dumped core.
+
+=item signal()
+
+The signal, if any, that killed the command.
+
+=back
 
 =head1 AUTHOR
 
