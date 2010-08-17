@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.07';
+our $VERSION = '1.08';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -86,7 +86,7 @@ sub new {
         $self->{git_dir} = $git_dir if defined $git_dir;
 
         # in a non-bare repository, the work tree is just above the gitdir
-        if ( $self->run(qw( rev-parse --is-bare-repository )) eq 'false' ) {
+        if ( $self->run(qw( config core.bare )) ne 'true' ) {
             $self->{work_tree}
                 = _abs_path( $self->{git_dir}, File::Spec->updir );
         }
@@ -187,6 +187,11 @@ sub run {
 #
 # version comparison methods
 #
+
+# NOTE: it doesn't make sense to try to cache the results of version():
+# - yes, it will make faster benchmarks, but
+# - the 'git' option allows to change the git binary anytime
+# - version comparison is usually done once anyway
 sub version {
     return ( $_[0]->run('--version') =~ /git version (.*)/g )[0];
 }

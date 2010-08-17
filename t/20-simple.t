@@ -10,13 +10,17 @@ plan skip_all => 'Default git binary not found in PATH'
     if !Git::Repository::Command::_has_git('git');
 
 my $version = Git::Repository->version;
-plan skip_all => "these tests require git > 1.6.0, but we only have $version"
-    if Git::Repository->version_lt('1.6.0');
+plan skip_all => "these tests require git >= 1.5.5, but we only have $version"
+    if Git::Repository->version_lt('1.5.5');
 
 plan tests => my $tests;
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
+$ENV{GIT_AUTHOR_NAME}     = 'Test Author';
+$ENV{GIT_AUTHOR_EMAIL}    = 'test.author@example.com';
+$ENV{GIT_COMMITTER_NAME}  = 'Test Committer';
+$ENV{GIT_COMMITTER_EMAIL} = 'test.committer@example.com';
 my $home = cwd;
 
 # small helper sub
@@ -47,7 +51,7 @@ is( $gitdir, $r->git_dir, 'git-dir' );
 # check usage exit code
 BEGIN { $tests += 2 }
 ok( ! eval { $r->run( qw( commit --bonk ) ); }, "FAIL with usage text" );
-like( $@, qr/^usage: git commit/m, '... expected usage message' );
+like( $@, qr/^usage: .*?git[- ]commit/m, '... expected usage message' );
 
 # add file to the index
 update_file( File::Spec->catfile( $dir, 'readme.txt' ), << 'TXT' );
@@ -62,7 +66,7 @@ delete @ENV{qw( EDITOR VISUAL )};
 
 SKIP: {
     BEGIN { $tests += 2 }
-    skip "these tests require git > 1.6.6, but we only have $version", 2
+    skip "these tests require git >= 1.6.6, but we only have $version", 2
         if Git::Repository->version_lt('1.6.6');
 
     ok( !eval { $r->run( var => 'GIT_EDITOR' ); 1; }, 'git var GIT_EDITOR' );
@@ -83,7 +87,7 @@ BEGIN { $tests += 4 }
     $cmd->close;
     like(
         $error,
-        qr/^error: Terminal is dumb/,
+        qr/^(?:error: )?Terminal is dumb/,
         'Git complains about lack of smarts and editor'
     );
 }
@@ -240,11 +244,15 @@ is( $author,
 );
 
 # PASS - use an option HASH (no env key)
-BEGIN { $tests += 1 }
+BEGIN { $tests += 2 }
 ( $parent, $tree ) = split /-/, $r->run( log => '--pretty=format:%H-%T', -1 );
-$r = Git::Repository->new(
-    work_tree => $dir,
-    { input => 'a dumb way to set log message' },
+ok( $r = eval {
+        Git::Repository->new(
+            work_tree => $dir,
+            { input => 'a dumb way to set log message' },
+        );
+    },
+    'Git::Repository->new()'
 );
 $commit = $r->run( 'commit-tree', $tree, '-p', $parent );
 my $log = $r->run( log => '--pretty=format:%s', -1, $commit );
