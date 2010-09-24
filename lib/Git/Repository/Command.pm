@@ -6,11 +6,13 @@ use 5.006;
 
 use Carp;
 use Cwd qw( cwd );
+use IO::Handle;
 use IPC::Open3 qw( open3 );
 use Scalar::Util qw( blessed );
 use File::Spec;
-use IO::Handle;
 use Config;
+
+our $VERSION = '1.06';
 
 # a few simple accessors
 for my $attr (qw( pid stdin stdout stderr exit signal core )) {
@@ -122,7 +124,7 @@ sub new {
     croak $@ if !defined $pid;
 
     # some input was provided
-    if ( defined $o->{input} ) {
+    if ( defined $o->{input} && length $o->{input} ) {
         local $SIG{PIPE}
             = sub { croak "Broken pipe when writing to: $git @cmd" };
         print {$in} $o->{input};
