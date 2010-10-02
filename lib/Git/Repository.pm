@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -26,11 +26,15 @@ for my $attr (qw( git_dir work_tree options )) {
 # helper function
 sub _abs_path {
     my ( $base, $path ) = @_;
-    return abs_path(
-        File::Spec->file_name_is_absolute($path)
-        ? $path
-        : File::Spec->catdir( $base, $path )
-    );
+    my $abs_path = '';
+    eval {
+        $abs_path = abs_path(
+            File::Spec->file_name_is_absolute($path)
+            ? $path
+            : File::Spec->catdir( $base, $path )
+        );
+    };
+    return $abs_path;
 }
 
 #
@@ -217,8 +221,20 @@ sub _version_gt {
     my @v1 = split /\./, $v1;
     my @v2 = split /\./, $v2;
 
+    # pick up any dev parts
+    my @dev1 = splice @v1, -2 if substr( $v1[-1], 0, 1 ) eq 'g';
+    my @dev2 = splice @v2, -2 if substr( $v2[-1], 0, 1 ) eq 'g';
+
     # skip to the first difference
     shift @v1, shift @v2 while @v1 && @v2 && $v1[0] eq $v2[0];
+
+    # we're comparing dev versions with the same ancestor
+    if ( !@v1 && !@v2 ) {
+        @v1 = @dev1;
+        @v2 = @dev2;
+    }
+
+    # prepare the bits to compare
     ( $v1, $v2 ) = ( $v1[0] || 0, $v2[0] || 0 );
 
     # rcX is less than any number
