@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.11';
+our $VERSION = '1.12';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -325,9 +325,9 @@ object, they will be overriden by the object's C<git_dir> and
 C<work_tree> attributes, respectively. It is however still possible to
 override them if necessary, using the C<env> option.
 
-=head1 METHODS
+=head1 CONSTRUCTORS
 
-C<Git::Repository> supports the following methods:
+There are two ways to create C<Git::Repository> objects:
 
 =head2 new( %args, $options )
 
@@ -397,6 +397,10 @@ their output to find the path to the repository.
 
 C<create()> also accepts a reference to an option hash which will be
 used to set up the returned C<Git::Repository> instance.
+
+=head1 METHODS
+
+C<Git::Repository> supports the following methods:
 
 =head2 command( @cmd )
 
