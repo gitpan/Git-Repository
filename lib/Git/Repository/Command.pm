@@ -12,7 +12,7 @@ use Scalar::Util qw( blessed );
 use File::Spec;
 use Config;
 
-our $VERSION = '1.07';
+our $VERSION = '1.08';
 
 # a few simple accessors
 for my $attr (qw( pid stdin stdout stderr exit signal core )) {
@@ -61,14 +61,7 @@ sub new {
       : blessed $_ && $_->isa('Git::Repository') ? $r ||= $_
       :                                          0 )
     } @cmd;
-
-    # get and check the git command
-    my $git = defined $o->{git} ? $o->{git} : 'git';
-    $binary{$git} = _has_git($git)
-        if !exists $binary{$git};
-
-    croak "git binary '$git' not available or broken"
-        if !$binary{$git};
+    $o ||= {};    # no options
 
     # keep changes to the environment local
     local %ENV = %ENV;
@@ -97,6 +90,14 @@ sub new {
         $ENV{GIT_WORK_TREE} = $work_tree
             if defined $work_tree;
     }
+
+    # get and check the git command
+    my $git = defined $o->{git} ? $o->{git} : 'git';
+    $binary{$git} = _has_git($git)
+        if !exists $binary{$git};
+
+    croak "git binary '$git' not available or broken"
+        if !$binary{$git};
 
     # chdir to the expected directory
     my $orig = cwd;
@@ -182,13 +183,13 @@ Git::Repository::Command - Command objects for running git
     use Git::Repository::Command;
 
     # invoke an external git command, and return an object
-    $cmd = Git::Repository::Command->(@cmd);
+    $cmd = Git::Repository::Command->new(@cmd);
 
     # a Git::Repository object can provide more context
-    $cmd = Git::Repository::Command->( $r, @cmd );
+    $cmd = Git::Repository::Command->new( $r, @cmd );
 
     # options can be passed as a hashref
-    $cmd = Git::Repository::Command->( $r, @cmd, \%option );
+    $cmd = Git::Repository::Command->new( $r, @cmd, \%option );
 
     # $cmd is basically a hash, with keys / accessors
     $cmd->stdin();     # filehandle to the process' stdin (write)
@@ -273,6 +274,12 @@ number of attributes defined (see below).
 Close all pipes to the child process, and collects exit status, etc.
 and defines a number of attributes (see below).
 
+Note that C<close()> is automatically called when the
+C<Git::Repository::Command> object is destroyed.
+Annoyingly, this means that in the following example C<$fh> will be
+closed when you tried to use it:
+
+    my $fh = Git::Repository::Command->new( @cmd )->stdout;
 
 =head2 Accessors
 

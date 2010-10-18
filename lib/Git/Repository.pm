@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.12';
+our $VERSION = '1.13';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -35,6 +35,23 @@ sub _abs_path {
         );
     };
     return $abs_path;
+}
+
+#
+# support for loading plugins
+#
+sub import {
+    my ( $class, @plugins ) = @_;
+
+    for my $plugin (@plugins) {
+        ( $plugin, my @names ) = @$plugin if ref $plugin;
+        $plugin
+            = substr( $plugin, 0, 1 ) eq '+'
+            ? substr( $plugin, 1 )
+            : "Git::Repository::Plugin::$plugin";
+        eval "use $plugin; 1;" or croak $@;
+        $plugin->install(@names);
+    }
 }
 
 #
@@ -203,7 +220,9 @@ sub run {
 # - the 'git' option allows to change the git binary anytime
 # - version comparison is usually done once anyway
 sub version {
-    return ( $_[0]->run('--version') =~ /git version (.*)/g )[0];
+    return (
+        shift->run( '--version', grep { ref eq 'HASH' } @_ )
+            =~ /git version (.*)/g )[0];
 }
 
 sub _version_eq {
@@ -575,6 +594,43 @@ lead to problems, for example when the user's git configuration defines
 C<format.pretty> to be something else than the default of C<medium>.
 
 
+=head1 PLUGIN SUPPORT
+
+C<Git::Repository> intentionally has only few methods.
+The idea is to provide a lightweight wrapper around git, to be used
+to create interesting tools based on Git.
+
+However, people will want to add extra functionality to C<Git::Repository>,
+the obvious example being a C<log()> method that returns simple objects
+with useful attributes.
+
+Taking the hypothetical C<Git::Repository::Plugin::Hello> module which
+source code is listed in the previous reference, the methods it provides
+would be loaded and used as follows:
+
+    use Git::Repository qw( Hello );
+
+    my $r = Git::Repository->new();
+    print $r->hello();
+    print $r->hello_gitdir();
+
+It's possible to load only a selection of methods from the plugin:
+
+    use Git::Repository [ Hello => 'hello' ];
+
+    my $r = Git::Repository->new();
+    print $r->hello();
+
+    # dies: Can't locate object method "hello_gitdir"
+    print $r->hello_gitdir();
+
+If your plugin lives in another namespace than C<Git::Repository::Plugin::>,
+just prefix the fully qualified class name with a C<+>. For example:
+
+    use Git::Repository qw( +MyGit::Hello );
+
+See L<Git::Repository::Plugin> about how to create a new plugin.
+
 =head1 OTHER PERL GIT WRAPPERS
 
 A number of Perl git wrappers already exist. Why create a new one?
@@ -654,6 +710,10 @@ L<http://search.cpan.org/dist/Git-Repository>
 
 =head1 ACKNOWLEDGEMENTS
 
+Thanks to Todd Rinalo, who wanted to add more methods to
+C<Git::Repository>, which made me look for a solution that would preserve
+the minimalism of C<Git::Repository>. The C<::Plugin> interface is what
+I came up with.
 
 =head1 COPYRIGHT
 
