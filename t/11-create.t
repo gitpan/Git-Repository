@@ -4,11 +4,11 @@ use Test::More;
 use File::Temp qw( tempdir );
 use File::Spec;
 use File::Path;
-use Cwd qw( cwd abs_path );
+use Cwd qw( cwd realpath );
 use Git::Repository;
 
 plan skip_all => 'Default git binary not found in PATH'
-    if !Git::Repository::Command::_has_git('git');
+    if !Git::Repository::Command::_is_git('git');
 
 my $version = Git::Repository->version;
 plan skip_all => "these tests require git >= 1.6.0, but we only have $version"
@@ -21,7 +21,7 @@ delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
 my $home = cwd();
 
 # a place to put a git repository
-my $tmp = abs_path( tempdir( CLEANUP => 1 ) );
+my $tmp = realpath( tempdir( CLEANUP => 1 ) );
 
 # some dirname generating routine
 my $i;
@@ -30,6 +30,10 @@ sub next_dir { return File::Spec->catdir( $tmp, ++$i ); }
 
 sub test_repo {
     my ( $r, $gitdir, $dir, $options ) = @_;
+
+    # normalize actual paths, but do not die under Win32
+    eval { $gitdir = realpath($gitdir) } if defined $gitdir;
+    eval { $dir    = realpath($dir) }    if defined $dir;
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
     isa_ok( $r, 'Git::Repository' );
@@ -125,16 +129,37 @@ SKIP: {
     test_repo( $r, File::Spec->catdir( $dir, '.git' ), $dir, {} );
 
     # PASS - clone an existing repo as bare and warns
+    # relative target path
     BEGIN { $between += 5 }
     $old = $dir;
     $dir = next_dir;
+    chdir $tmp;
     ok( $r = eval {
-            Git::Repository->create( clone => '--bare', $old => $dir );
+            Git::Repository->create( clone => '--bare', $old => $i );
         },
         "create( clone => --bare, @{[ $i - 1 ]} => $i )"
     );
     diag $@ if $@;
+    chdir $home;
     test_repo( $r, $dir, undef, {} );
+
+    # PASS - clone an existing repo as bare and warns
+    # absolute target path
+    BEGIN { $between += 5 }
+  SKIP: {
+        $old = $dir;
+        $dir = next_dir;
+        skip 'git clone --bare fails with absolute target path', 5
+          if $^O eq 'MSWin32';
+        ok(
+            $r = eval {
+                Git::Repository->create( clone => '--bare', $old => $dir );
+            },
+            "create( clone => --bare, @{[ $i - 1 ]} => $i )"
+        );
+        diag $@ if $@;
+        test_repo( $r, $dir, undef, {} );
+    }
 }
 
 # FAIL - clone a non-existing repo
@@ -172,7 +197,8 @@ $dir = next_dir;
 mkpath $dir;
 chdir $dir;
 $gitdir = File::Spec->catdir( $dir, '.notgit' );
-my $options = { cwd => $dir, env => { GIT_DIR => $gitdir } };
+my $options =
+  { cwd => $dir, env => { GIT_DIR => File::Spec->abs2rel($gitdir) } };
 ok( $r = eval { Git::Repository->create( 'init', $options ); },
     "create( init ) => $i, GIT_DIR => '.notgit'" );
 diag $@ if $@;
@@ -192,7 +218,7 @@ $dir = next_dir;
 mkpath $dir;
 chdir $dir;
 $gitdir = File::Spec->catdir( $dir, '.notgit' );
-$options = { cwd => $dir, env => { GIT_DIR => $gitdir } };
+$options = { cwd => $dir, env => { GIT_DIR => File::Spec->abs2rel($gitdir) } };
 ok( $r = eval {
         Git::Repository->create( "--work-tree=$dir", 'init', $options );
     },
@@ -213,7 +239,10 @@ mkpath $subdir;
 chdir $subdir;
 $options = {
     cwd => $subdir,
-    env => { GIT_DIR => $gitdir, GIT_WORK_TREE => $dir }
+    env => {
+        GIT_DIR       => File::Spec->abs2rel( $gitdir, $subdir ),
+        GIT_WORK_TREE => File::Spec->abs2rel( $dir,    $subdir )
+    }
 };
 ok( $r = eval { Git::Repository->create( 'init', $options ); },
     "create( init ) => $i, GIT_DIR => '.notgit'" );

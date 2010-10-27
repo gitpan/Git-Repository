@@ -12,7 +12,16 @@ use Scalar::Util qw( blessed );
 use File::Spec;
 use Config;
 
-our $VERSION = '1.08';
+our $VERSION = '1.09';
+
+# Trap the real STDIN/ERR/OUT file handles in case someone
+# *COUGH* Catalyst *COUGH* screws with them which breaks open3
+my ($REAL_STDIN, $REAL_STDOUT, $REAL_STDERR);
+BEGIN {
+    open $REAL_STDIN, "<&=".fileno(*STDIN);
+    open $REAL_STDOUT, ">>&=".fileno(*STDOUT);
+    open $REAL_STDERR, ">>&=".fileno(*STDERR);
+}
 
 # a few simple accessors
 for my $attr (qw( pid stdin stdout stderr exit signal core )) {
@@ -25,31 +34,67 @@ for my $attr (qw( cmdline )) {
 }
 
 # CAN I HAS GIT?
-sub _has_git {
+my %binary;    # cache calls to _is_git
+sub _is_git {
     my ($binary) = @_;
 
-    # compute a list of candidate files (if relative, look in PATH)
+    # compute cache key:
+    # - filename (path):     path
+    # - absolute path (abs): empty string
+    # - relative path (rel): dirname
+    # this relatively complex cache key scheme allows PATH or cwd to change
+    # during the life of a Git::Repository object
+    my $path = defined $ENV{PATH} && length( $ENV{PATH} ) ? $ENV{PATH} : '';
+    my ( $type, $key )
+        = ( File::Spec->splitpath($binary) )[2] eq $binary ? ( 'path', $path )
+        : File::Spec->file_name_is_absolute($binary)       ? ( 'abs', '' )
+        :                                                    ( 'rel', cwd() );
+
+    # check the cache
+    return $binary{$type}{$key}{$binary}
+        if exists $binary{$type}{$key}{$binary};
+
+    # compute a list of candidate files (look in PATH if needed)
+    my $git;
+    if ( $type eq 'path' ) {
+        my $path_sep = $Config::Config{path_sep} || ';';
+        my @ext = (
+            '', $^O eq 'MSWin32' ? ( split /\Q$path_sep\E/, $ENV{PATHEXT} ) : ()
+        );
+        ($git) = grep {-e}
+            map {
+            my $path = $_;
+            map { File::Spec->catfile( $path, $_ ) } map {"$binary$_"} @ext
+            }
+            split /\Q$path_sep\E/, $path;
+    }
+    else {
+        $git = File::Spec->rel2abs($binary);
+    }
+
     # if we can't find any, we're done
-    my $path_sep = $Config::Config{path_sep} || ';';
-    return
-        if !grep {-x} File::Spec->file_name_is_absolute($binary)
-            || ( File::Spec->splitpath($binary) )[1]
-        ? $binary
-        : map { File::Spec->catfile( $_, $binary ) }
-            split /\Q$path_sep\E/, ( $ENV{PATH} || '' );
+    return $binary{$type}{$key}{$binary} = undef
+        if !( defined $git && -x $git );
 
     # try to run it
-    my ( $in, $out );
+    my ( $version, $in, $out );
     my $err = Symbol::gensym;
-    my $pid = eval { open3( $in, $out, $err, $binary, '--version' ); };
-    waitpid $pid, 0;
-    my $version = <$out>;
+    local *STDIN  = $REAL_STDIN;
+    local *STDOUT = $REAL_STDOUT;
+    local *STDERR = $REAL_STDERR;
+    if ( my $pid = eval { open3( $in, $out, $err, $git, '--version' ) } ) {
+        waitpid $pid, 0;
+        $version = <$out>;
+    }
 
     # does it really look like git?
-    return $version =~ /^git version \d/;
+    return $binary{$type}{$key}{$binary}
+        = $version =~ /^git version \d/
+            ? $type eq 'path'
+                ? $binary    # leave the shell figure it out itself too
+                : $git
+            : undef;
 }
-
-my %binary;    # cache calls to _has_git
 
 sub new {
     my ( $class, @cmd ) = @_;
@@ -92,12 +137,11 @@ sub new {
     }
 
     # get and check the git command
-    my $git = defined $o->{git} ? $o->{git} : 'git';
-    $binary{$git} = _has_git($git)
-        if !exists $binary{$git};
+    my $git_cmd = defined $o->{git} ? $o->{git} : 'git';
+    my $git = _is_git($git_cmd);
 
-    croak "git binary '$git' not available or broken"
-        if !$binary{$git};
+    croak "git binary '$git_cmd' not available or broken"
+        if !defined $git;
 
     # chdir to the expected directory
     my $orig = cwd;
@@ -119,6 +163,10 @@ sub new {
     # start the command
     my ( $in, $out, $err );
     $err = Symbol::gensym;
+
+    local *STDIN  = $REAL_STDIN;
+    local *STDOUT = $REAL_STDOUT;
+    local *STDERR = $REAL_STDERR;
     my $pid = eval { open3( $in, $out, $err, $git, @cmd ); };
 
     # FIXME - better check open3 error conditions
@@ -265,7 +313,7 @@ passed to C<new()>.
 If several option hashes are passed to C<new()>, only the first one will
 be used.
 
-The C<Git::Repository::Command> object returned by C<new()> has a 
+The C<Git::Repository::Command> object returned by C<new()> has a
 number of attributes defined (see below).
 
 
@@ -308,7 +356,7 @@ A filehandle opened in read mode to the child process' standard output.
 
 =item stderr()
 
-A filehandle opened in read mode to the child process' standard error output. 
+A filehandle opened in read mode to the child process' standard error output.
 
 =back
 

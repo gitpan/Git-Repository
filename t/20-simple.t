@@ -7,7 +7,7 @@ use Cwd qw( cwd abs_path );
 use Git::Repository;
 
 plan skip_all => 'Default git binary not found in PATH'
-    if !Git::Repository::Command::_has_git('git');
+    if !Git::Repository::Command::_is_git('git');
 
 my $version = Git::Repository->version;
 plan skip_all => "these tests require git >= 1.5.5, but we only have $version"
@@ -50,9 +50,11 @@ is( $gitdir, $r->git_dir, 'git-dir' );
 
 # check usage exit code
 BEGIN { $tests += 2 }
+SKIP: {
+    skip "run( commit --bonk ) hangs on Win32", 2 if $^O eq 'MSWin32';
 ok( ! eval { $r->run( qw( commit --bonk ) ); }, "FAIL with usage text" );
 like( $@, qr/^usage: .*?git[- ]commit/m, '... expected usage message' );
-
+}
 # add file to the index
 update_file( File::Spec->catfile( $dir, 'readme.txt' ), << 'TXT' );
 Some readme text
@@ -106,7 +108,12 @@ my $parent = $r->run( log => '--pretty=format:%H' );
 like( $parent, qr/^[a-f0-9]{40}$/, 'parent commit id' );
 my $tree = $r->run( log => '--pretty=format:%T' );
 like( $parent, qr/^[a-f0-9]{40}$/, 'parent tree id' );
-my $commit = $r->run(
+
+my $commit;
+SKIP: {
+    skip "run( commit-tree ) hangs on MSWin32", 12
+      if $^O eq 'MSWin32';
+$commit = $r->run(
     'commit-tree' => $tree,
     '-p',
     $parent,
@@ -177,10 +184,14 @@ like( $@, qr/^Can't chdir to \Q$dir/, '... expected error message' );
 
 # now work with GIT_DIR and GIT_WORK_TREE only
 BEGIN { $tests += 1 }
-$ENV{GIT_DIR} = $gitdir;
+{
+    local $ENV{GIT_DIR} = $gitdir;
 
-my $got = Git::Repository->run( log => '-1', '--pretty=format:%H' );
-is( $got, $commit, 'git log -1' );
+    my $got = Git::Repository->run( log => '-1', '--pretty=format:%H' );
+    is( $got, $commit, 'git log -1' );
+}
+
+}
 
 # PASS - try with a relative dir
 BEGIN { $tests += 3 }
@@ -201,6 +212,42 @@ chdir $home;
 
 is( $r->work_tree,   $dir,    'work tree' );
 is( $r->git_dir, $gitdir, 'git dir' );
+
+# PASS - pass the git binary as an option to new()
+BEGIN { $tests += 9 }
+{
+    my $path_sep = $Config::Config{path_sep} || ';';
+    my $re = qr/\Q$path_sep\E/;
+    my @ext =
+      ( '', $^O eq 'MSWin32' ? ( split $re, $ENV{PATHEXT} ) : () );
+    my ($abs_git) = grep { -e }
+      map {
+        my $path = $_;
+        map { File::Spec->catfile( $path, $_ ) } map { "git$_" } @ext
+      } split $re, ( $ENV{PATH} || '' );
+
+    # do not wipe the Windows PATH
+    local $ENV{PATH} = $^O eq 'MSWin32'
+      ? join $path_sep, grep { /\Q$ENV{SYSTEMROOT}\E/ } split $re, $ENV{PATH}
+      : undef;
+
+    $r = Git::Repository->new( git_dir => $gitdir, { git => $abs_git } );
+    isa_ok( $r, 'Git::Repository' );
+    is( $r->work_tree, $dir,    'work tree (git_dir, no PATH, git option)' );
+    is( $r->git_dir,   $gitdir, 'git dir (git_dir, no PATH, git option)' );
+
+    $r = Git::Repository->new( work_tree => $dir, { git => $abs_git } );
+    isa_ok( $r, 'Git::Repository' );
+    is( $r->work_tree, $dir, 'work tree (work_tree, no PATH, git option)' );
+    is( $r->git_dir, $gitdir, 'git dir (work_tree, no PATH, git option)' );
+
+    chdir $dir;
+    $r = Git::Repository->new( { git => $abs_git } );
+    isa_ok( $r, 'Git::Repository' );
+    chdir $home;
+    is( $r->work_tree, $dir,    'work tree (no PATH, git option)' );
+    is( $r->git_dir,   $gitdir, 'git dir (no PATH, git option)' );
+}
 
 # PASS - use an option HASH
 BEGIN { $tests += 3 }
@@ -243,6 +290,9 @@ is( $author,
     'Option hash in new() and run()'
 );
 
+SKIP: {
+    skip "run( commit-tree ) and run( mktree ) hang on MSWin32", 4
+      if $^O eq 'MSWin32';
 # PASS - use an option HASH (no env key)
 BEGIN { $tests += 2 }
 ( $parent, $tree ) = split /-/, $r->run( log => '--pretty=format:%H-%T', -1 );
@@ -254,6 +304,7 @@ ok( $r = eval {
     },
     'Git::Repository->new()'
 );
+
 $commit = $r->run( 'commit-tree', $tree, '-p', $parent );
 my $log = $r->run( log => '--pretty=format:%s', -1, $commit, { input => undef } );
 is( $log, 'a dumb way to set log message', 'Option hash in new() worked' );
@@ -264,4 +315,5 @@ ok( $r = eval { Git::Repository->new( work_tree => $dir ) },
     'Git::Repository->new()' );
 $tree = $r->run( mktree => { input => '' } );
 is( $tree, '4b825dc642cb6eb9a060e54bf8d69288fbee4904', 'mktree empty tree' );
+}
 

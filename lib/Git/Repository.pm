@@ -6,12 +6,12 @@ use 5.006;
 
 use Carp;
 use File::Spec;
-use Cwd qw( cwd abs_path );
+use Cwd qw( cwd realpath );
 use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.13';
+our $VERSION = '1.14';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -25,15 +25,11 @@ for my $attr (qw( git_dir work_tree options )) {
 
 # helper function
 sub _abs_path {
-    my ( $base, $path ) = @_;
-    my $abs_path = '';
-    eval {
-        $abs_path = abs_path(
-            File::Spec->file_name_is_absolute($path)
-            ? $path
-            : File::Spec->catdir( $base, $path )
-        );
-    };
+    my ( $path, $base ) = @_;
+    my $abs_path = File::Spec->rel2abs( $path, $base );
+
+    # normalize, but don't die on Win32 if the path doesn't exist
+    eval { $abs_path = realpath($abs_path); };
     return $abs_path;
 }
 
@@ -82,10 +78,10 @@ sub new {
     my $cwd = defined $options->{cwd} ? $options->{cwd} : cwd();
 
     # if work_tree or git_dir are relative, they are relative to cwd
-    -d ( $git_dir = _abs_path( $cwd, $git_dir ) )
+    -d ( $git_dir = _abs_path( $git_dir, $cwd ) )
         or croak "directory not found: $git_dir"
         if defined $git_dir;
-    -d ( $work_tree = _abs_path( $cwd, $work_tree ) )
+    -d ( $work_tree = _abs_path( $work_tree, $cwd ) )
         or croak "directory not found: $work_tree"
         if defined $work_tree;
 
@@ -95,10 +91,13 @@ sub new {
          :                           cwd();
 
     # we'll always have to compute it if not defined
-    $self->{git_dir}
-        = _abs_path( $cwd,
-        Git::Repository->run( qw( rev-parse --git-dir ), { cwd => $cwd } ) )
-        if !defined $git_dir;
+    $self->{git_dir} = _abs_path(
+        Git::Repository->run(
+            qw( rev-parse --git-dir ),
+            { %$options, cwd => $cwd }
+        ),
+        $cwd
+    ) if !defined $git_dir;
 
     # there are 4 possible cases
     if ( !defined $work_tree ) {
@@ -112,7 +111,7 @@ sub new {
         # in a non-bare repository, the work tree is just above the gitdir
         if ( $self->run(qw( config core.bare )) ne 'true' ) {
             $self->{work_tree}
-                = _abs_path( $self->{git_dir}, File::Spec->updir );
+                = _abs_path( File::Spec->updir, $self->{git_dir} );
         }
     }
     else {
@@ -124,9 +123,9 @@ sub new {
 
             # check work_tree is the top-level work tree, and not a subdir
             my $cdup = Git::Repository->run( qw( rev-parse --show-cdup ),
-                { cwd => $cwd } );
+                { %$options, cwd => $cwd } );
             $self->{work_tree}
-                = $cdup ? _abs_path( $work_tree, $cdup ) : $work_tree;
+                = $cdup ? _abs_path( $cdup, $work_tree ) : $work_tree;
         }
 
         # 4) both path defined: trust the values
@@ -138,7 +137,7 @@ sub new {
 
     # sanity check
     my $gitdir
-        = eval { _abs_path( $cwd, $self->run(qw( rev-parse --git-dir )) ) }
+        = eval { _abs_path( $self->run(qw( rev-parse --git-dir )), $cwd ) }
         || '';
     croak "fatal: Not a git repository: $self->{git_dir}"
         if $self->{git_dir} ne $gitdir;

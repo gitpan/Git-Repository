@@ -8,7 +8,7 @@ use Cwd qw( cwd abs_path );
 use Git::Repository;
 
 plan skip_all => 'Default git binary not found in PATH'
-    if !Git::Repository::Command::_has_git('git');
+    if !Git::Repository::Command::_is_git('git');
 
 my $version = Git::Repository->version;
 plan skip_all => "these tests require git >= 1.5.0, but we only have $version"
@@ -55,23 +55,59 @@ is( $got, "Hello, $gitdir!\n", '... with expected value' );
 
 # FAIL - can't load this plugin
 BEGIN { $tests += 2 }
-ok( ! eval q{use Git::Repository 'DoesNotExist'; 2;}, 'Failed to load inexistent plugin' );
-like( $@, qr{^Can't locate Git/Repository/Plugin/DoesNotExist\.pm }, '... expected error message' );
+ok( !eval q{use Git::Repository 'DoesNotExist'; 2;},
+    'Failed to load inexistent plugin' );
+like(
+    $@,
+    qr{^Can't locate Git/Repository/Plugin/DoesNotExist\.pm },
+    '... expected error message'
+);
 
-# PASS - load Hello2 and only a single method
-BEGIN { $tests += 2 }
+# PASS - load Hello2 and throw various warnings
 my @warnings;
 {
+    BEGIN { $tests += 5 }
     local $SIG{__WARN__} = sub { push @warnings, shift };
-    use_ok( 'Git::Repository', [ Hello2 => 'hello' ] );
+    use_ok( 'Git::Repository', [ Hello2 => 'hello', 'zlonk' ] );
 
+    is( scalar @warnings, 3, 'Got 3 warnings' );
     like(
         $warnings[0],
-        qr/^Subroutine Git::Repository::hello redefined /,
-        'warning about redefined method'
+        qr/^Use of \@KEYWORDS by Git::Repository::Plugin::Hello2 is deprecated /,
+        '... deprecation warning'
     );
+    like(
+        $warnings[1],
+        qr/^Unknown keyword 'zlonk' in Git::Repository::Plugin::Hello2 /,
+        '... unknown keyword'
+    );
+    like(
+        $warnings[2],
+        qr/^Subroutine Git::Repository::hello redefined /,
+        '... redefined method warning'
+    );
+    @warnings = ();
+
+    BEGIN { $tests += 5 }
+    use_ok( 'Git::Repository', [ Hello2 => 'bam' ] );
+    is( scalar @warnings, 3, 'Got 3 warnings' );
+    like(
+        $warnings[0],
+        qr/^Use of \@KEYWORDS by Git::Repository::Plugin::Hello2 is deprecated /,
+        '... deprecation warning'
+    );
+    like(
+        $warnings[1],
+        qr/^Unknown keyword 'bam' in Git::Repository::Plugin::Hello2 /,
+        '... unknown keyword'
+    );
+    like(
+        $warnings[2],
+        qr/^No keywords installed from Git::Repository::Plugin::Hello2 /,
+        '... no valid keyword left'
+    );
+    @warnings = ();
 }
-@warnings = ();
 
 # PASS - new methods
 BEGIN { $tests += 4 }
