@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.14';
+our $VERSION = '1.15';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -196,15 +196,14 @@ sub run {
     # done with it
     $command->close;
 
-    # something's wrong
-    if (@errput) {
-        my $errput = join "\n", @errput;
-        my $exit = $command->{exit};
-
-        # exit codes: 128 => fatal, 129 => usage
-        if   ( $exit == 128 || $exit == 129 ) { croak $errput; }
-        else                                  { carp $errput; }
+    # exit codes: 128 => fatal, 129 => usage
+    my $exit = $command->{exit};
+    if ( $exit == 128 || $exit == 129 ) {
+        croak join( "\n", @errput ) || 'fatal: unknown git error';
     }
+
+    # something else's wrong
+    if (@errput) { carp join "\n", @errput; }
 
     # return the output
     return wantarray ? @output : join "\n", @output;
@@ -515,6 +514,11 @@ by C<git --version>) for all git versions that can be compiled from each
 commit in the F<git.git> repository, the result would not be a totally ordered
 set. Big deal.
 
+Also, don't be to precise when requiring the minimum version of Git that
+supported a given feature. The precise commit in git.git at which a given
+feature was added doesn't mean as much as the release branch in which that
+commit was merged.
+
 =head1 HOW-TO
 
 =head2 Create a new repository
@@ -672,6 +676,12 @@ Doesn't support streams or bidirectional commands.
 Philippe Bruhat (BooK), C<< <book at cpan.org> >>
 
 =head1 BUGS
+
+On Win32, in some cases of failure of the underlying Git command,
+the C<run()> method is not able to catch the error output on STDERR.
+In those cases, C<Git::Repository> will croak C<fatal: unknown git error>
+instead of the original Git error message. Bugfixes and explanations
+are very welcome.
 
 Please report any bugs or feature requests to C<bug-git-repository at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Git-Repository>.  I will be notified, and then you'll

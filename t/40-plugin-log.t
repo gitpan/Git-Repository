@@ -2,38 +2,25 @@ use strict;
 use warnings;
 use lib 't';
 use Test::More;
+use Test::Git;
 use File::Temp qw( tempdir );
 use File::Spec;
 use Cwd qw( cwd abs_path );
 use Git::Repository;
 
-plan skip_all => 'Default git binary not found in PATH'
-    if !Git::Repository::Command::_is_git('git');
+has_git('1.5.0');
 
 my $version = Git::Repository->version;
-plan skip_all => "these tests require git >= 1.5.0, but we only have $version"
-    if Git::Repository->version_lt('1.5.0');
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
-my $home = cwd();
-
-# a place to put a git repository
-my $dir = abs_path( tempdir( CLEANUP => 1 ) );
 
 plan tests => my $tests;
 
 # first create a new empty repository
-chdir $dir;
-BEGIN { $tests += 1 }
-ok( my $r = eval { Git::Repository->create('init') },
-    q{Git::Repository->create( 'init' ) => dir }
-);
-diag $@ if !$r;
+my $r      = test_repository;
+my $dir    = $r->work_tree;
 my $gitdir = $r->git_dir;
-
-# make sure 't' is still where it should be
-chdir $home;
 
 # some test data
 my %commit = (
@@ -101,6 +88,7 @@ check_commit( 2 => $log[0] );
 
 # try as a class method
 BEGIN { $tests += 8 }
+my $home = cwd;
 chdir $dir;
 @log = Git::Repository->log();
 is( scalar @log, 2, '2 commits' );

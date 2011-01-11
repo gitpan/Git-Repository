@@ -1,11 +1,11 @@
 use strict;
 use warnings;
 use Test::More;
+use Test::Git;
 use Scalar::Util qw( looks_like_number );
 use Git::Repository;
 
-plan skip_all => 'Default git binary not found in PATH'
-    if !Git::Repository::Command::_is_git('git');
+has_git;
 
 # get the git version
 my ($version) = Git::Repository->run('--version') =~ /git version (.*)/g;
@@ -50,6 +50,7 @@ my @true = (
     [ '1.7.1.211.g54fcb21', 'version_gt', '1.7.1.209.gd60ad81' ],
     [ '1.7.1.211.g54fcb21', 'version_ge', '1.7.1.209.gd60ad81' ],
     [ '1.7.1.209.gd60ad81', 'version_lt', '1.7.1.1.1.g66bd8ab' ],
+    [ '1.7.0.2.msysgit.0',  'version_gt', '1.6.6' ],
 );
 
 # operator reversal: $a op $b <=> $b rop $a
@@ -111,7 +112,7 @@ my $dev;
 
     package Git::Repository::VersionFaker;
     our @ISA = qw( Git::Repository );
-    sub run { return "git version $dev" }
+    sub version { return $dev }
 }
 $r = 'Git::Repository::VersionFaker';
 

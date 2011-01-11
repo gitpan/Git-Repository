@@ -12,7 +12,14 @@ use Scalar::Util qw( blessed );
 use File::Spec;
 use Config;
 
-our $VERSION = '1.09';
+# MSWin32 support
+use constant MSWin32 => $^O eq 'MSWin32';
+if ( MSWin32 ) {
+    require Socket;
+    import Socket qw( AF_UNIX SOCK_STREAM PF_UNSPEC );
+}
+
+our $VERSION = '1.10';
 
 # Trap the real STDIN/ERR/OUT file handles in case someone
 # *COUGH* Catalyst *COUGH* screws with them which breaks open3
@@ -42,13 +49,17 @@ sub _is_git {
     # - filename (path):     path
     # - absolute path (abs): empty string
     # - relative path (rel): dirname
-    # this relatively complex cache key scheme allows PATH or cwd to change
-    # during the life of a Git::Repository object
     my $path = defined $ENV{PATH} && length( $ENV{PATH} ) ? $ENV{PATH} : '';
     my ( $type, $key )
         = ( File::Spec->splitpath($binary) )[2] eq $binary ? ( 'path', $path )
         : File::Spec->file_name_is_absolute($binary)       ? ( 'abs', '' )
         :                                                    ( 'rel', cwd() );
+
+    # This relatively complex cache key scheme allows PATH or cwd to change
+    # during the life of a program using Git::Repository, which is likely
+    # to happen. On the other hand, it completely ignores the possibility
+    # that any part of the cached path to a git binary could be a symlink
+    # which target may also change during the life of the program.
 
     # check the cache
     return $binary{$type}{$key}{$binary}
@@ -77,14 +88,11 @@ sub _is_git {
         if !( defined $git && -x $git );
 
     # try to run it
-    my ( $version, $in, $out );
-    my $err = Symbol::gensym;
-    local *STDIN  = $REAL_STDIN;
-    local *STDOUT = $REAL_STDOUT;
-    local *STDERR = $REAL_STDERR;
-    if ( my $pid = eval { open3( $in, $out, $err, $git, '--version' ) } ) {
-        waitpid $pid, 0;
+    my $version;
+    my ( $pid, $in, $out, $err ) = _spawn( $git, '--version' );
+    if ($pid) {
         $version = <$out>;
+        waitpid $pid, 0;
     }
 
     # does it really look like git?
@@ -160,14 +168,8 @@ sub new {
     @ENV{ keys %{ $o->{env} } } = values %{ $o->{env} }
         if exists $o->{env};
 
-    # start the command
-    my ( $in, $out, $err );
-    $err = Symbol::gensym;
-
-    local *STDIN  = $REAL_STDIN;
-    local *STDOUT = $REAL_STDOUT;
-    local *STDERR = $REAL_STDERR;
-    my $pid = eval { open3( $in, $out, $err, $git, @cmd ); };
+    # spawn the command
+    my ( $pid, $in, $out, $err ) = _spawn( $git, @cmd );
 
     # FIXME - better check open3 error conditions
     croak $@ if !defined $pid;
@@ -177,7 +179,8 @@ sub new {
         local $SIG{PIPE}
             = sub { croak "Broken pipe when writing to: $git @cmd" };
         print {$in} $o->{input} if length $o->{input};
-        $in->close;
+        if (MSWin32) { $in->flush; shutdown( $in, 2 ); }
+        else         { $in->close; }
     }
 
     # chdir back to origin
@@ -200,9 +203,16 @@ sub close {
 
     # close all pipes
     my ( $in, $out, $err ) = @{$self}{qw( stdin stdout stderr )};
-    $in->opened  and $in->close  || carp "error closing stdin: $!";
-    $out->opened and $out->close || carp "error closing stdout: $!";
-    $err->opened and $err->close || carp "error closing stderr: $!";
+    if ( MSWin32 ) {
+        $in->opened  and shutdown( $in,  2 ) || carp "error closing stdin: $!";
+        $out->opened and shutdown( $out, 2 ) || carp "error closing stdout: $!";
+        $err->opened and shutdown( $err, 2 ) || carp "error closing stderr: $!";
+    }
+    else {
+        $in->opened  and $in->close  || carp "error closing stdin: $!";
+        $out->opened and $out->close || carp "error closing stdout: $!";
+        $err->opened and $err->close || carp "error closing stderr: $!";
+    }
 
     # and wait for the child
     waitpid $self->{pid}, 0;
@@ -216,6 +226,52 @@ sub close {
 sub DESTROY {
     my ($self) = @_;
     $self->close if !exists $self->{exit};
+}
+
+sub _spawn {
+    my @cmd = @_;
+    my ( $pid, $in, $out, $err );
+
+    # save standard handles
+    local *STDIN  = $REAL_STDIN;
+    local *STDOUT = $REAL_STDOUT;
+    local *STDERR = $REAL_STDERR;
+
+    if (MSWin32) {
+
+        # code from: http://www.perlmonks.org/?node_id=811650
+        # discussion at: http://www.perlmonks.org/?node_id=811057
+        local ( *IN_R,  *IN_W );
+        local ( *OUT_R, *OUT_W );
+        local ( *ERR_R, *ERR_W );
+        _pipe( *IN_R,  *IN_W )  or croak "input pipe error: $^E";
+        _pipe( *OUT_R, *OUT_W ) or croak "output pipe error: $^E";
+        _pipe( *ERR_R, *ERR_W ) or croak "errput pipe error: $^E";
+
+        $pid = eval { open3( '>&IN_R', '<&OUT_W', '<&ERR_W', @cmd ); };
+        ( $in, $out, $err ) = ( *IN_W{IO}, *OUT_R{IO}, *ERR_R{IO} );
+    }
+    else {
+        $err = Symbol::gensym;
+        $pid = eval { open3( $in, $out, $err, @cmd ); };
+    }
+
+    return ( $pid, $in, $out, $err );
+}
+
+sub _pipe {
+    socketpair( $_[0], $_[1], AF_UNIX(), SOCK_STREAM(), PF_UNSPEC() )
+        or return undef;
+
+    # turn off buffering
+    $_[0]->autoflush(1);
+    $_[1]->autoflush(1);
+
+    # half-duplex
+    shutdown( $_[0], 1 );    # No more writing for reader
+    shutdown( $_[1], 0 );    # No more reading for writer
+
+    return 1;
 }
 
 1;
@@ -381,6 +437,14 @@ The signal, if any, that killed the command.
 =head1 AUTHOR
 
 Philippe Bruhat (BooK), C<< <book at cpan.org> >>
+
+=head1 ACKNOWLEDGEMENTS
+
+The Win32 implementation owes a lot to two people. First, Olivier Raginel
+(BABAR), for providing me with a test platform with Git and Strawberry
+Perl installed, which I could use at any time. Many thanks go also to
+Chris Williams (BINGOS) for pointing me towards perlmonks posts by ikegami
+that contained crucial elements to a working MSWin32 implementation.
 
 =head1 COPYRIGHT
 
