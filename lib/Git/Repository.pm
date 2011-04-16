@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -152,6 +152,9 @@ sub create {
     my ( $class, @args ) = @_;
     my @output = $class->run(@args);
     my $gitdir;
+
+    # create() is now deprecated
+    carp "create() is deprecated, please use run() instead";
 
     # git init or clone until v1.7.1 (inclusive)
     if ( $output[0] =~ /^(?:Reinitialized existing|Initialized empty) Git repository in (.*)/ ) {
@@ -313,11 +316,13 @@ Git::Repository - Perl interface to Git repositories
     # start from an existing working copy
     $r = Git::Repository->new( work_tree => $dir );
 
-    # or init our own repository
-    $r = Git::Repository->create( init => $dir, ... );
+    # or init our own repository first
+    Git::Repository->run( init => $dir, ... );
+    $r = Git::Repository->new( work_tree => $dir );
 
-    # or clone from a URL
-    $r = Git::Repository->create( clone => $url, ... );
+    # or clone from a URL first
+    Git::Repository->run( clone => $url, $dir, ... );
+    $r = Git::Repository->new( work_tree => $dir );
 
     # run commands
     # - get the full output (no errput)
@@ -414,13 +419,15 @@ So this:
 is equivalent to explicitly passing the option hash to each
 C<run()> or C<command()>.
 
-It probably makes no sense to set the C<input> option in C<new()> or
-C<create()>, but L<Git::Repository> won't stop you.
+It probably makes no sense to set the C<input> option in C<new()>,
+but L<Git::Repository> won't stop you.
 Note that on some systems, some git commands may close standard input
 on startup, which will cause a C<SIGPIPE>. L<Git::Repository::Command>
 will raise an exception.
 
 =head2 create( @cmd )
+
+B<The C<create()> method is deprecated, and will go away in the future.>
 
 Runs a repository initialization command (like C<init> or C<clone>) and
 returns a C<Git::Repository> object pointing to it. C<@cmd> may contain
@@ -431,6 +438,16 @@ their output to find the path to the repository.
 
 C<create()> also accepts a reference to an option hash which will be
 used to set up the returned C<Git::Repository> instance.
+
+Now that C<create()> is deprecated, instead of:
+
+    $r = Git::Repository->create( ... );
+
+simply do it in two steps:
+
+    Git::Repository->run( ... );
+    $r = Git::Repository->new( ... );
+
 
 =head1 METHODS
 
@@ -615,6 +632,41 @@ Assuming B<git log> will output the default format will eventually
 lead to problems, for example when the user's git configuration defines
 C<format.pretty> to be something else than the default of C<medium>.
 
+=head2 Process the output of B<git shortlog>
+
+B<git shortlog> behaves differently when it detects it's not attached
+to a terminal. In that case, it just tries to read some B<git log>
+output from its standard input.
+
+So this oneliner will hang, because B<git shortlog> is waiting for some
+data from the program connected to its standard input (the oneliner):
+
+    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => -5 )'
+
+Whereas this one will "work" (as in "immediately return with no output"):
+
+    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => -5, { input => "" } )'
+
+So, you need to give B<git shortlog> I<some> input (from B<git log>):
+
+    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => { input => scalar Git::Repository->run( log => -5 ) } )'
+
+If the log output is large, you'll probably be better off with something
+like the following:
+
+    use Git::Repository;
+
+    # start both git commands
+    my $log = Git::Repository->command('log')->stdout;
+    my $cmd = Git::Repository->command( shortlog => -ens );
+
+    # feed one with the output of the other
+    my $in = $cmd->stdin;
+    print {$in} $_ while <$log>;
+    close $in;
+
+    # and do something with the output
+    print $cmd->stdout->getlines;
 
 =head1 PLUGIN SUPPORT
 

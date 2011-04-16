@@ -48,8 +48,12 @@ BEGIN { $tests += 5 }
 my $gitdir = File::Spec->catdir( $dir, '.git' );
 mkpath $dir;
 chdir $dir;
-ok( $r = eval { $r = Git::Repository->create( 'init', { cwd => $dir } ); },
-    "create( init ) => $i" );
+ok( $r = eval {
+        $r = Git::Repository->run( 'init', { cwd => $dir } );
+        Git::Repository->new( { cwd => $dir } );
+    },
+    "init => $i"
+);
 diag $@ if $@;
 test_repo( $r, $gitdir, $dir, { cwd => $dir } );
 chdir $home;
@@ -104,70 +108,67 @@ ok( $r = eval {
 diag $@ if $@;
 test_repo( $r, $gitdir, $dir, {} );
 chdir $home;
-# FAIL - command doesn't initialize a git repository
-BEGIN { $tests += 2 }
-ok( !( $r = eval { Git::Repository->create('--version'); } ),
-    "create( --version ) FAILED" );
+
+# PASS - clone an existing repo and warns
+BEGIN { $between += 5 }
+my $old = $dir;
+$dir = next_dir;
+ok( $r = eval {
+        Git::Repository->run( clone => $old => $dir );
+        Git::Repository->new( work_tree => $dir );
+    },
+    "clone => @{[ $i - 1 ]} => $i"
+);
 diag $@ if $@;
-is( $r, undef, 'create( --version ) did not create a repository' );
+test_repo( $r, File::Spec->catdir( $dir, '.git' ), $dir, {} );
 
+# PASS - clone an existing repo as bare and warns
+# relative target path
+BEGIN { $between += 5 }
+$old = $dir;
+$dir = next_dir;
+chdir $tmp;
+ok( $r = eval {
+        Git::Repository->run( clone => '--bare', $old => $i );
+        Git::Repository->new( git_dir => $i );
+    },
+    "clone => --bare, @{[ $i - 1 ]} => $i"
+);
+diag $@ if $@;
+chdir $home;
+test_repo( $r, $dir, undef, {} );
+
+# PASS - clone an existing repo as bare and warns
+# absolute target path
+BEGIN { $between += 5 }
 SKIP: {
-    skip "git clone is quiet for 1.7.1 < git < 1.7.1.1, we have $version",
-        $between
-        if Git::Repository->version_lt('1.7.1.1')
-            && Git::Repository->version_gt('1.7.1');
-
-    # PASS - clone an existing repo and warns
-    BEGIN { $between += 5 }
-    my $old = $dir;
-    $dir = next_dir;
-    ok( $r = eval { Git::Repository->create( clone => $old => $dir ); },
-        "create( clone => @{[ $i - 1 ]} => $i )" );
-    diag $@ if $@;
-    test_repo( $r, File::Spec->catdir( $dir, '.git' ), $dir, {} );
-
-    # PASS - clone an existing repo as bare and warns
-    # relative target path
-    BEGIN { $between += 5 }
     $old = $dir;
     $dir = next_dir;
-    chdir $tmp;
+    skip 'git clone --bare fails with absolute target path', 5
+        if $^O eq 'MSWin32';
     ok( $r = eval {
-            Git::Repository->create( clone => '--bare', $old => $i );
+            Git::Repository->run( clone => '--bare', $old => $dir );
+            Git::Repository->new( git_dir => $dir );
         },
-        "create( clone => --bare, @{[ $i - 1 ]} => $i )"
+        "clone => --bare, @{[ $i - 1 ]} => $i"
     );
     diag $@ if $@;
-    chdir $home;
     test_repo( $r, $dir, undef, {} );
-
-    # PASS - clone an existing repo as bare and warns
-    # absolute target path
-    BEGIN { $between += 5 }
-  SKIP: {
-        $old = $dir;
-        $dir = next_dir;
-        skip 'git clone --bare fails with absolute target path', 5
-          if $^O eq 'MSWin32';
-        ok(
-            $r = eval {
-                Git::Repository->create( clone => '--bare', $old => $dir );
-            },
-            "create( clone => --bare, @{[ $i - 1 ]} => $i )"
-        );
-        diag $@ if $@;
-        test_repo( $r, $dir, undef, {} );
-    }
 }
 
 # FAIL - clone a non-existing repo
 BEGIN { $tests += 3 }
-my $old = next_dir;
+$old = next_dir;
 $dir = next_dir;
-ok( !( $r = eval { Git::Repository->create( clone => $old => $dir ); } ),
-    "create( clone => @{[ $i - 1 ]} => $i ) FAILED" );
+ok( !(  $r = eval {
+            Git::Repository->run( clone => $old => $dir );
+            Git::Repository->new( work_tree => $dir );
+        }
+    ),
+    "clone => @{[ $i - 1 ]} => $i - FAILED"
+);
 is( $r, undef,
-    "create( clone => @{[ $i - 1 ]} => $i ) did not create a repository" );
+    "clone => @{[ $i - 1 ]} => $i - did not create a repository" );
 like( $@, qr/^fatal: /, 'fatal error from git' );
 
 # PASS - init a bare repository
@@ -175,8 +176,12 @@ BEGIN { $tests += 5 }
 $dir = next_dir;
 mkpath $dir;
 chdir $dir;
-ok( $r = eval { Git::Repository->create(qw( init --bare )); },
-    "create( clone => @{[ $i - 1 ]} ) => $i" );
+ok( $r = eval {
+        Git::Repository->run(qw( init --bare ));
+        Git::Repository->new();
+    },
+    "clone => @{[ $i - 1 ]} - $i"
+);
 diag $@ if $@;
 test_repo( $r, $dir, undef, {} );
 chdir $home;
@@ -195,10 +200,14 @@ $dir = next_dir;
 mkpath $dir;
 chdir $dir;
 $gitdir = File::Spec->catdir( $dir, '.notgit' );
-my $options =
-  { cwd => $dir, env => { GIT_DIR => File::Spec->abs2rel($gitdir) } };
-ok( $r = eval { Git::Repository->create( 'init', $options ); },
-    "create( init ) => $i, GIT_DIR => '.notgit'" );
+my $options
+    = { cwd => $dir, env => { GIT_DIR => File::Spec->abs2rel($gitdir) } };
+ok( $r = eval {
+        Git::Repository->run( 'init', $options );
+        Git::Repository->new($options);
+    },
+    "init - cwd => $i, GIT_DIR => '.notgit'"
+);
 diag $@ if $@;
 chdir $home;
 test_repo( $r, $gitdir, undef, $options );
@@ -218,9 +227,10 @@ chdir $dir;
 $gitdir = File::Spec->catdir( $dir, '.notgit' );
 $options = { cwd => $dir, env => { GIT_DIR => File::Spec->abs2rel($gitdir) } };
 ok( $r = eval {
-        Git::Repository->create( "--work-tree=$dir", 'init', $options );
+        Git::Repository->run( "--work-tree=$dir", 'init', $options );
+        Git::Repository->new( work_tree => $dir, $options );
     },
-    "create( init ) => $i, GIT_DIR => '.notgit'"
+    "init - cwd => $i, GIT_DIR => '.notgit'"
 );
 diag $@ if $@;
 test_repo( $r, $gitdir, $dir, $options );
@@ -242,8 +252,12 @@ $options = {
         GIT_WORK_TREE => File::Spec->abs2rel( $dir,    $subdir )
     }
 };
-ok( $r = eval { Git::Repository->create( 'init', $options ); },
-    "create( init ) => $i, GIT_DIR => '.notgit'" );
+ok( $r = eval {
+        Git::Repository->run( 'init', $options );
+        Git::Repository->new($options);
+    },
+    "init - cwd => $i, GIT_DIR => '.notgit'"
+);
 diag $@ if $@;
 chdir $home;
 test_repo( $r, $gitdir, $dir, $options );
@@ -257,22 +271,35 @@ SKIP: {
     BEGIN { $extra += 3 }
     $dir = next_dir;
     { open my $fh, '>', $dir; }    # creates an empty file
-    ok( !( $r = eval { $r = Git::Repository->create( init => $dir ); } ),
-        "create( init => $i ) FAILED" );
-    is( $r, undef, "create( init => $i ) did not create a repository" );
+    ok( !(  $r = eval {
+                Git::Repository->run( init => $dir );
+                Git::Repository->new( work_tree => $dir );
+            }
+        ),
+        "init => $i - FAILED"
+    );
+    is( $r, undef, "init => $i - did not create a repository" );
     like( $@, qr/^fatal: /, 'fatal error from git' );
 
-    # PASS - create() on an existing repository
+    # PASS - init on an existing repository
     BEGIN { $extra += 10 }
     $dir = next_dir;
     $gitdir = File::Spec->catdir( $dir, '.git' );
-    ok( $r = eval { Git::Repository->create( init => $dir ) },
-        "create( init => $i ) " );
+    ok( $r = eval {
+            Git::Repository->run( init => $dir );
+            Git::Repository->new( work_tree => $dir );
+        },
+        "init => $i"
+    );
     diag $@ if $@;
     test_repo( $r, $gitdir, $dir, {} );
 
-    ok( $r = eval { Git::Repository->create( init => $dir ) },
-        "create( init => $i ) again" );
+    ok( $r = eval {
+            Git::Repository->run( init => $dir );
+            Git::Repository->new( work_tree => $dir );
+        },
+        "init => $i - again"
+    );
     diag $@ if $@;
     test_repo( $r, $gitdir, $dir, {} );
 }

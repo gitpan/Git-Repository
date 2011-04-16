@@ -35,7 +35,8 @@ my $dir = abs_path( tempdir( CLEANUP => 1 ) );
 # PASS - non-existent directory
 BEGIN { $tests += 3 }
 chdir $dir;
-my $r = Git::Repository->create( 'init' );
+Git::Repository->run('init');
+my $r = Git::Repository->new();
 isa_ok( $r, 'Git::Repository' );
 chdir $home;
 
@@ -67,6 +68,9 @@ SKIP: {
     skip "these tests require git >= 1.6.6, but we only have $version", 2
         if Git::Repository->version_lt('1.6.6');
 
+    skip "editor defined directly in .gitconfig", 2
+        if $r->run( config => 'core.editor' );
+
     ok( !eval { $r->run( var => 'GIT_EDITOR' ); 1; }, 'git var GIT_EDITOR' );
     like(
         $@,
@@ -77,7 +81,10 @@ SKIP: {
 
 # with git commit it's not fatal
 BEGIN { $tests += 4 }
-{
+SKIP: {
+    skip "editor defined directly in .gitconfig", 4
+        if $r->run( config => 'core.editor' );
+
     ok( my $cmd = $r->command('commit'), 'git commit' );
     isa_ok( $cmd, 'Git::Repository::Command' );
     my $error = $cmd->stderr->getline;
