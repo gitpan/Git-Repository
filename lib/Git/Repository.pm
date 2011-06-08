@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -109,7 +109,7 @@ sub new {
         $self->{git_dir} = $git_dir if defined $git_dir;
 
         # in a non-bare repository, the work tree is just above the gitdir
-        if ( $self->run(qw( config core.bare )) ne 'true' ) {
+        if ( $self->run(qw( config --bool core.bare )) ne 'true' ) {
             $self->{work_tree}
                 = _abs_path( File::Spec->updir, $self->{git_dir} );
         }
@@ -191,25 +191,8 @@ sub run {
     my $command
         = Git::Repository::Command->new( ref $self ? $self : (), @cmd );
 
-    # get output / errput
-    my ( $stdout, $stderr ) = @{$command}{qw(stdout stderr)};
-    chomp( my @output = <$stdout> );
-    chomp( my @errput = <$stderr> );
-
-    # done with it
-    $command->close;
-
-    # exit codes: 128 => fatal, 129 => usage
-    my $exit = $command->{exit};
-    if ( $exit == 128 || $exit == 129 ) {
-        croak join( "\n", @errput ) || 'fatal: unknown git error';
-    }
-
-    # something else's wrong
-    if (@errput) { carp join "\n", @errput; }
-
-    # return the output
-    return wantarray ? @output : join "\n", @output;
+    # return the output or die
+    return $command->final_output;
 }
 
 #
@@ -350,7 +333,7 @@ command, whether I<porcelain> or I<plumbing>, including bidirectional
 commands such as C<git commit-tree>.
 
 A C<Git::Repository> object simply provides context to the git commands
-being run. Is it possible to call the  C<command()>and C<run()> methods
+being run. It is possible to call the  C<command()> and C<run()> methods
 against the class itself, and the context (typically I<current working
 directory>) will be obtained from the options and environment.
 
@@ -363,6 +346,11 @@ special: if the command is run in the context of a C<Git::Repository>
 object, they will be overriden by the object's C<git_dir> and
 C<work_tree> attributes, respectively. It is however still possible to
 override them if necessary, using the C<env> option.
+
+C<Git::Repository> requires at least Git 1.5.0, and is expected to support
+any later version.
+
+See C<Git::Repository::Tutorial> for more code examples.
 
 =head1 CONSTRUCTORS
 
@@ -470,7 +458,7 @@ Lines are automatically C<chomp>ed.
 
 If the git command printed anything on stderr, it will be printed as
 warnings. If the git sub-process exited with status C<128> (fatal error),
-C<run()> will C<die()>.
+or C<129> (usage message), C<run()> will C<die()>.
 
 =head2 git_dir()
 
@@ -555,119 +543,6 @@ supported a given feature. The precise commit in git.git at which a given
 feature was added doesn't mean as much as the release branch in which that
 commit was merged.
 
-=head1 HOW-TO
-
-=head2 Create a new repository
-
-    # git version 1.6.5 and above
-    my $r = Git::Repository->create( init => $dir );
-
-    # any older git will need two steps
-    chdir $dir;
-    my $r = Git::Repository->create( 'init' );
-
-=head2 Clone a repository
-
-    my $r = Git::Repository->create( clone => $url => $dir );
-
-=head2 Run a simple command
-
-    $r->run( add => '.' );
-    $r->run( commit => '-m', 'my commit message' );
-
-=head2 Process normal and error output
-
-The C<run()> command doesn't capture stderr: it only warns (or dies)
-if something was printed on it. To be able to actually capture error
-output, C<command()> must be used.
-
-    my $cmd = $r->command( @cmd );
-    my @errput = $cmd->stderr->getlines();
-    $cmd->close;
-
-C<run()> also captures all output at once, which can lead to unnecessary
-memory consumption when capturing the output of some really verbose
-commands.
-
-    my $cmd = $r->command( log => '--pretty=oneline', '--all' );
-    my $log = $cmd->stdout;
-    while (<$log>) {
-        ...;
-    }
-    $cmd->close;
-
-Of course, as soon as one starts reading and writing to an external
-process' communication handles, a risk of blocking exists.
-I<Caveat emptor>.
-
-=head2 Provide input on standard input
-
-Use the C<input> option:
-
-    my $commit = $r->run( 'commit-tree', $tree, '-p', $parent,
-        { input => $message } );
-
-=head2 Change the environment of a command
-
-Use the C<env> option:
-
-    $r->run(
-        'commit', '-m', 'log message',
-        {   env => {
-                GIT_COMMITTER_NAME  => 'Git::Repository',
-                GIT_COMMITTER_EMAIL => 'book@cpan.org',
-            },
-        },
-    );
-
-See L<Git::Repository::Command> for other available options.
-
-=head2 Process the output of B<git log>
-
-When creating a tool that needs to process the output of B<git log>,
-you should always define precisely the expected format using the
-I<--pretty> option, and choose a format that is easy to parse.
-
-Assuming B<git log> will output the default format will eventually
-lead to problems, for example when the user's git configuration defines
-C<format.pretty> to be something else than the default of C<medium>.
-
-=head2 Process the output of B<git shortlog>
-
-B<git shortlog> behaves differently when it detects it's not attached
-to a terminal. In that case, it just tries to read some B<git log>
-output from its standard input.
-
-So this oneliner will hang, because B<git shortlog> is waiting for some
-data from the program connected to its standard input (the oneliner):
-
-    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => -5 )'
-
-Whereas this one will "work" (as in "immediately return with no output"):
-
-    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => -5, { input => "" } )'
-
-So, you need to give B<git shortlog> I<some> input (from B<git log>):
-
-    perl -MGit::Repository -le 'print scalar Git::Repository->run( shortlog => { input => scalar Git::Repository->run( log => -5 ) } )'
-
-If the log output is large, you'll probably be better off with something
-like the following:
-
-    use Git::Repository;
-
-    # start both git commands
-    my $log = Git::Repository->command('log')->stdout;
-    my $cmd = Git::Repository->command( shortlog => -ens );
-
-    # feed one with the output of the other
-    my $in = $cmd->stdin;
-    print {$in} $_ while <$log>;
-    close $in;
-
-    # and do something with the output
-    print $cmd->stdout->getlines;
-
 =head1 PLUGIN SUPPORT
 
 C<Git::Repository> intentionally has only few methods.
@@ -715,6 +590,20 @@ revision history of a project. A lot of those commands can output
 huge amounts of data, which I need to be able to process in chunks.
 Some of these commands also expect to receive input.
 
+What follows is a short list of "missing features" that I was looking
+for when I looked at the existing Git wrappers on CPAN. They are the
+"rational" reason for writing my own (the real reason being of course
+"I thought it would be fun, and I enjoyed doing it").
+
+Even though it works well for me and others, C<Git::Repository> has its
+own shortcomings: it I<is> a I<low-level interface to Git commands>,
+anything complex requires you to deal with input/output handles,
+it provides no high-level interface to generate actual Git commands
+or process the output of commands (but have a look at the plugins),
+it doesn't fully work under Win32 yet, etc. One the following modules
+may therefore be better suited for your needs, depending on what you're
+trying to achieve.
+
 =head2 Git.pm
 
 Git.pm is not on CPAN. It is usually packaged with Git, and installed with
@@ -730,9 +619,11 @@ L<http://kerneltrap.org/mailarchive/git/2008/10/24/3789584>
 =head2 Git::Class
 
 Depends on Moose, which seems an unnecessary dependency for a simple
-wrapper around Git.
+wrapper around Git. The startup penalty could become significant for
+command-line tools.
 
-Although it supports C<git init> and C<git clone>, it is mostly aimed at
+Although it supports C<git init> and C<git clone>
+(and has methods to call any Git command), it is mostly aimed at
 porcelain commands, and provides no way to control bidirectional commands
 (such as C<git commit-tree>).
 
@@ -748,11 +639,11 @@ Philippe Bruhat (BooK), C<< <book at cpan.org> >>
 
 =head1 BUGS
 
-On Win32, in some cases of failure of the underlying Git command,
-the C<run()> method is not able to catch the error output on STDERR.
-In those cases, C<Git::Repository> will croak C<fatal: unknown git error>
-instead of the original Git error message. Bugfixes and explanations
-are very welcome.
+Since version 1.17, C<Git::Repository> delegates the actual command
+execution to C<System::Command>. Win32 support for that module is
+currently very bad (the test suite hangs in a few places).
+If you'd like better Win32 support for C<Git::Repository>, help me improve
+C<System::Command>!
 
 Please report any bugs or feature requests to C<bug-git-repository at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Git-Repository>.  I will be notified, and then you'll

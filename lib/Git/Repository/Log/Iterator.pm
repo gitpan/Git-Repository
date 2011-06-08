@@ -9,7 +9,7 @@ use Git::Repository;
 use Git::Repository::Command;
 use Git::Repository::Log;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 sub new {
     my ( $class, @cmd ) = @_;
@@ -46,7 +46,7 @@ sub next {
     }
 
     # EOF
-    return if !@records;
+    return $self->{cmd}->final_output() if !@records;
 
     # the first two records are always the same, with --pretty=raw
     my ( $header, $message, $extra ) = ( @records, '' );
