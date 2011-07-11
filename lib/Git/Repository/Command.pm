@@ -13,7 +13,7 @@ use File::Spec;
 use Config;
 use System::Command;
 
-our $VERSION = '1.13';
+our $VERSION = '1.14';
 our @ISA = qw( System::Command );
 
 
@@ -79,7 +79,7 @@ sub _is_git {
 
     # try to run it
     my ( $pid, $in, $out, $err )
-        = __PACKAGE__->spawn( $git, @args, '--version' );
+        = System::Command->spawn( $git, @args, '--version' );
     my $version = <$out>;
 
     # does it really look like git?

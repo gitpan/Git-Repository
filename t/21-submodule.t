@@ -4,11 +4,20 @@ use Test::More;
 use Test::Git;
 use Git::Repository;
 
+has_git( '1.5.0' );
+
 plan skip_all =>
     "Removing environment variables requires System::Command 1.04, this is only $System::Command::VERSION"
     if $System::Command::VERSION < 1.04;
 
 plan tests => 1;
+
+# clean up the environment
+delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
+$ENV{GIT_AUTHOR_NAME}     = 'Test Author';
+$ENV{GIT_AUTHOR_EMAIL}    = 'test.author@example.com';
+$ENV{GIT_COMMITTER_NAME}  = 'Test Committer';
+$ENV{GIT_COMMITTER_EMAIL} = 'test.committer@example.com';
 
 # create a small repository
 my $s      = test_repository;
