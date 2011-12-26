@@ -9,7 +9,7 @@ use Git::Repository;
 use Git::Repository::Command;
 use Git::Repository::Log;
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 sub new {
     my ( $class, @cmd ) = @_;
@@ -49,6 +49,7 @@ sub next {
     return $self->{cmd}->final_output() if !@records;
 
     # the first two records are always the same, with --pretty=raw
+    local $/ = "\n";
     my ( $header, $message, $extra ) = ( @records, '' );
     my @headers = map { chomp; split / /, $_, 2 } split /^/m, $header;
     chomp( $message, $extra ) if exists $self->{record};
@@ -102,7 +103,7 @@ C<Git::Repository::Log::Iterator> expects the output to look like that
 of C<--pretty=raw>, and so will force the the C<--pretty> option
 (in case C<format.pretty> is defined in the Git configuration).
 
-Extra ouput (like patches) will be stored in the C<extra> parameter of
+Extra output (like patches) will be stored in the C<extra> parameter of
 the C<Git::Repository::Log> object. Decorations will be lost.
 
 When unsupported options are recognized in the parameter list, C<new()>

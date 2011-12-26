@@ -13,7 +13,7 @@ use File::Spec;
 use Config;
 use System::Command;
 
-our $VERSION = '1.14';
+our $VERSION = '1.15';
 our @ISA = qw( System::Command );
 
 
@@ -31,9 +31,11 @@ for my $attr (qw( cmdline )) {
 my %binary;    # cache calls to _is_git
 sub _is_git {
     my ( $binary, @args ) = @_;
+    my $args = join "\0", @args;
 
     # git option might be an arrayref containing an executable with arguments
     # Best that can be done is to check if the first part is executable
+    # and use the arguments as part of the cache key
 
     # compute cache key:
     # - filename (path):     path
@@ -52,8 +54,8 @@ sub _is_git {
     # which target may also change during the life of the program.
 
     # check the cache
-    return $binary{$type}{$key}{$binary}
-        if exists $binary{$type}{$key}{$binary};
+    return $binary{$type}{$key}{$binary}{$args}
+        if exists $binary{$type}{$key}{$binary}{$args};
 
     # compute a list of candidate files (look in PATH if needed)
     my $git;
@@ -62,7 +64,7 @@ sub _is_git {
         my @ext = (
             '', $^O eq 'MSWin32' ? ( split /\Q$path_sep\E/, $ENV{PATHEXT} ) : ()
         );
-        ($git) = grep {-e}
+        ($git) = grep { -e && !-d }
             map {
             my $path = $_;
             map { File::Spec->catfile( $path, $_ ) } map {"$binary$_"} @ext
@@ -80,10 +82,10 @@ sub _is_git {
     # try to run it
     my ( $pid, $in, $out, $err )
         = System::Command->spawn( $git, @args, '--version' );
-    my $version = <$out>;
+    my $version = do { local $/ = "\n"; <$out>; };
 
     # does it really look like git?
-    return $binary{$type}{$key}{$binary}
+    return $binary{$type}{$key}{$binary}{$args}
         = $version =~ /^git version \d/
             ? $type eq 'path'
                 ? $binary    # leave the shell figure it out itself too
@@ -129,7 +131,8 @@ sub new {
         = defined $git_cmd ? ref $git_cmd ? @$git_cmd : ($git_cmd) : ('git');
     my $git = _is_git($git_cmd, @args);
 
-    croak "git binary '$git_cmd' not available or broken"
+    croak sprintf "git binary '%s' not available or broken",
+        join( ' ', $git_cmd, @args )    # show the full command given
         if !defined $git;
 
     # turn us into a dumb terminal
@@ -144,8 +147,12 @@ sub final_output {
 
     # get output / errput
     my ( $stdout, $stderr ) = @{$self}{qw(stdout stderr)};
-    chomp( my @output = <$stdout> );
-    chomp( my @errput = <$stderr> );
+    my ( @output, @errput );
+    {
+        local $/ = "\n";
+        chomp( @output = <$stdout> );
+        chomp( @errput = <$stderr> );
+    }
 
     # done with it
     $self->close;
@@ -264,7 +271,7 @@ an exception.
 =back
 
 If the C<Git::Repository> object has its own option hash, it will be used
-to provide default values that can be overriden by the actual option hash
+to provide default values that can be overridden by the actual option hash
 passed to C<new()>.
 
 If several option hashes are passed to C<new()>, they will all be merged,
