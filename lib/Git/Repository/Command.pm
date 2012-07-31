@@ -164,7 +164,7 @@ sub final_output {
     }
 
     # something else's wrong
-    if (@errput) { carp join "\n", @errput; }
+    if ( @errput && !$self->options->{quiet} ) { carp join "\n", @errput; }
 
     # return the output
     return wantarray ? @output : join "\n", @output;
@@ -265,8 +265,15 @@ a way to modify options inherited from C<new()> or a hash populated by
 some other part of the program.
 
 On some systems, some git commands may close standard input on startup,
-which will cause a SIGPIPE when trying to write to it. This will raise
+which will cause a C<SIGPIPE> when trying to write to it. This will raise
 an exception.
+
+=item C<quiet>
+
+Boolean option to control the output of warnings.
+
+If true, methods such as C<final_output()> will not warn when Git outputs
+messages on C<STDERR>.
 
 =back
 
