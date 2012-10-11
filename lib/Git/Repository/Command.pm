@@ -13,7 +13,7 @@ use File::Spec;
 use Config;
 use System::Command;
 
-our $VERSION = '1.15';
+our $VERSION = '1.16';
 our @ISA = qw( System::Command );
 
 
@@ -64,7 +64,7 @@ sub _is_git {
         my @ext = (
             '', $^O eq 'MSWin32' ? ( split /\Q$path_sep\E/, $ENV{PATHEXT} ) : ()
         );
-        ($git) = grep { -e && !-d }
+        ($git) = grep { -x && !-d }
             map {
             my $path = $_;
             map { File::Spec->catfile( $path, $_ ) } map {"$binary$_"} @ext
@@ -385,7 +385,7 @@ MSWin32 implementation.
 
 =head1 COPYRIGHT
 
-Copyright 2010-2011 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2012 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 
