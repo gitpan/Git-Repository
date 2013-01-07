@@ -197,6 +197,20 @@ ok( !eval {
 );
 like( $@, qr/^Can't chdir to .*not-there/, '... expected error message' );
 
+# FAIL - pass more than one Git::Repository to Git::Repository::Command
+BEGIN { $tests += 2 }
+ok( !eval {
+        $r->run( 'version',
+            bless( { work_tree => 'TEH FAIL' }, 'Git::Repository' ) );
+    },
+    'Fail with more than one Git::Repository object'
+);
+like(
+    $@,
+    qr/^Too many Git::Repository objects given: /,
+    '... expected error message'
+);
+
 # now work with GIT_DIR and GIT_WORK_TREE only
 BEGIN { $tests += 1 }
 {
@@ -274,7 +288,6 @@ $r = Git::Repository->new(
             GIT_AUTHOR_EMAIL => 'author@example.com'
         }
     },
-    { git => '/bin/false' },    # second option hash will be ignored silently
 );
 update_file( my $file = File::Spec->catfile( $dir, 'other.txt' ), << 'TXT' );
 Some other text
@@ -296,7 +309,6 @@ $r->run(
     commit => '-a',
     '-m', 'Test option hash in run()',
     { env => { GIT_AUTHOR_EMAIL => 'fail@fail.com' } },      # ignored silently
-    bless( { work_tree => 'TEH FAIL' }, 'Git::Repository' ), # ignored silently
     { env => { GIT_AUTHOR_EMAIL => 'example@author.com' } }  # not ignored
 );
 ($author) = grep {/^Author:/} $r->run( log => '-1', '--pretty=medium' );
@@ -304,6 +316,19 @@ is( $author,
     'Author: Example author <example@author.com>',
     'Option hash in new() and run()'
 );
+
+# FAIL - use more than one option HASH
+BEGIN { $tests += 2 }
+ok( !eval {
+        $r = Git::Repository->new(
+            work_tree => $dir,
+            { env => { GIT_AUTHOR_NAME => 'Example author' } },
+            { git => '/bin/false' }
+        );
+    },
+    'new() dies when given more than one option HASH'
+);
+like( $@, qr/^Too many option hashes given: /, '... expected error message' );
 
 # PASS - use an option HASH (no env key)
 BEGIN { $tests += 2 }

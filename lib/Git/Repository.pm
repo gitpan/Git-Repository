@@ -11,7 +11,7 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.29';
+our $VERSION = '1.300';
 
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
@@ -67,8 +67,13 @@ sub new {
     my $self = bless {}, $class;
 
     # take out the option hash
-    my %arg = grep { !( ref eq 'HASH' ? $self->{options} ||= $_ : 0 ) } @arg;
-    my $options = $self->{options} ||= {};
+    my ( $options, %arg );
+    {
+        my @o;
+        %arg = grep !( ref eq 'HASH' ? push @o, $_ : 0 ), @arg;
+        croak "Too many option hashes given: @o" if @o > 1;
+        $options = $self->{options} = shift @o || {};
+    }
 
     # ignore 'input' option during object creation
     my $input = delete $options->{input};

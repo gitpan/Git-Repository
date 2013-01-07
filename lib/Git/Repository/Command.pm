@@ -12,7 +12,7 @@ use File::Spec;
 use Config;
 use System::Command;
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 our @ISA = qw( System::Command );
 
 
@@ -96,9 +96,15 @@ sub new {
     my ( $class, @cmd ) = @_;
 
     # split the args
-    my ($r) = grep { blessed $_ && $_->isa('Git::Repository') } @cmd;
-    my @o = grep { ref eq 'HASH' } @cmd;
-    @cmd = grep { !ref } @cmd;
+    my (@r, @o);
+    @cmd =    # take out the first Git::Repository in $r, and options in @o
+        grep !( blessed $_ && $_->isa('Git::Repository') ? push @r, $_ : 0 ),
+        grep !( ref eq 'HASH'                            ? push @o, $_ : 0 ),
+        @cmd;
+
+    # wouldn't know what to do with more than one Git::Repository object
+    croak "Too many Git::Repository objects given: @r" if @r > 1;
+    my $r = shift @r;
 
     # keep changes to the environment local
     local %ENV = %ENV;

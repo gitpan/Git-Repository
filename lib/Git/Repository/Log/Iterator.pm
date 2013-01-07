@@ -4,12 +4,13 @@ use strict;
 use warnings;
 use 5.006;
 use Carp;
+use Scalar::Util qw( blessed );
 
 use Git::Repository;
 use Git::Repository::Command;
 use Git::Repository::Log;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 sub new {
     my ( $class, @cmd ) = @_;
@@ -24,8 +25,13 @@ sub new {
         . 'Use run( log => ... ) to parse the output yourself'
         if @badopts;
 
+    # note: there is no --color option to git log  before 1.5.3.3
+    my ($r) = grep blessed $_ && $_->isa('Git::Repository'), @cmd;
+    $r ||= 'Git::Repository';    # no Git::Repository object given
+    unshift @cmd, '--no-color' if $r->version_ge('1.5.3.3');
+
     # enforce the format
-    @cmd = ( 'log', '--pretty=raw', '--color=never', @cmd );
+    @cmd = ( 'log', '--pretty=raw', @cmd );
 
     # run the command (@cmd may hold a Git::Repository instance)
     bless { cmd => Git::Repository::Command->new(@cmd) }, $class;
