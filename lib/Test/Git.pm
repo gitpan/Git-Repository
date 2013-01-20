@@ -1,4 +1,7 @@
 package Test::Git;
+{
+  $Test::Git::VERSION = '1.301';
+}
 
 use strict;
 use warnings;
@@ -10,7 +13,6 @@ use File::Temp qw( tempdir );
 use Cwd qw( cwd );
 use Carp;
 
-our $VERSION = '1.02';
 our @ISA     = qw( Exporter );
 our @EXPORT  = qw( has_git test_repository );
 
@@ -60,11 +62,19 @@ sub test_repository {
 
 1;
 
+# ABSTRACT: Helper functions for test scripts using Git
+
+
 __END__
+=pod
 
 =head1 NAME
 
 Test::Git - Helper functions for test scripts using Git
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -95,7 +105,6 @@ Test::Git - Helper functions for test scripts using Git
 L<Test::Git> provides a number of helpful functions when running test
 scripts that require the creation and management of a Git repository.
 
-
 =head1 EXPORTED FUNCTIONS
 
 =head2 has_git( $version, \%options )
@@ -110,7 +119,6 @@ accepted by L<Git::Repository> and L<Git::Repository::Command>.
 
 This function must be called before C<plan()>, as it performs a B<skip_all>
 if requirements are not met.
-
 
 =head2 test_repository( %options )
 
@@ -141,16 +149,14 @@ repository, it requires at least Git version C<1.5.0>.
 
 =head1 AUTHOR
 
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
+Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2010-2012 Philippe Bruhat (BooK), all rights reserved.
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
 
-=head1 LICENSE
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

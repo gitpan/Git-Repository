@@ -1,4 +1,7 @@
 package Git::Repository::Command;
+{
+  $Git::Repository::Command::VERSION = '1.301';
+}
 
 use strict;
 use warnings;
@@ -12,9 +15,7 @@ use File::Spec;
 use Config;
 use System::Command;
 
-our $VERSION = '1.18';
 our @ISA = qw( System::Command );
-
 
 # a few simple accessors
 for my $attr (qw( pid stdin stdout stderr exit signal core )) {
@@ -182,11 +183,19 @@ sub final_output {
 
 1;
 
+# ABSTRACT: Command objects for running git
+
+
 __END__
+=pod
 
 =head1 NAME
 
 Git::Repository::Command - Command objects for running git
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -217,7 +226,6 @@ Git::Repository::Command - Command objects for running git
 
     # cut to the chase
     my ( $pid, $in, $out, $err ) = Git::Repository::Command->spawn(@cmd);
-
 
 =head1 DESCRIPTION
 
@@ -297,7 +305,6 @@ keys in later hashes taking precedence over keys in earlier hashes.
 The L<Git::Repository::Command> object returned by C<new()> has a
 number of attributes defined (see below).
 
-
 =head2 close()
 
 Close all pipes to the child process, and collects exit status, etc.
@@ -319,7 +326,6 @@ but the coderef must still return the result string.
 If the Git command printed anything on stderr, it will be printed as
 warnings. If the git sub-process exited with status C<128> (fatal error),
 or C<129> (usage message), it will C<die()>.
-
 
 =head2 Accessors
 
@@ -380,10 +386,6 @@ The signal, if any, that killed the command.
 
 =back
 
-=head1 AUTHOR
-
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
-
 =head1 ACKNOWLEDGEMENTS
 
 The core of L<Git::Repository::Command> has been moved into its own
@@ -397,14 +399,16 @@ Many thanks go also to Chris Williams (BINGOS) for pointing me towards
 perlmonks posts by ikegami that contained crucial elements to a working
 MSWin32 implementation.
 
-=head1 COPYRIGHT
+=head1 AUTHOR
 
-Copyright 2010-2012 Philippe Bruhat (BooK), all rights reserved.
+Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

@@ -1,6 +1,17 @@
+# ABSTRACT: Control git from Perl using Git::Repository
+# PODNAME: Git::Repository::Tutorial
+
+
+__END__
+=pod
+
 =head1 NAME
 
 Git::Repository::Tutorial - Control git from Perl using Git::Repository
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -65,8 +76,7 @@ Sometime, you'll need to create the Git repository from scratch:
     Git::Repository->run( init => { cwd => $dir } );
     $r = Git::Repository->new( work_tree => $dir );
 
-Note that the old C<create()> method is obsolete, warns and will be removed
-in a future version.
+Note that the old C<create()> method is obsolete and has been removed.
 
 =head2 Clone a repository
 
@@ -255,7 +265,6 @@ using the I<private> C<_version_gt()> method (which accepts two parameters):
             || -Git::Repository::_version_gt( $b, $a )
     } @versions;
 
-
 =head2 Add specialized methods to your Git::Repository objects
 
 Have a look at L<Git::Repository::Plugin> and L<Git::Repository::Plugin::Log>,
@@ -263,16 +272,14 @@ to learn how to add your own methods to L<Git::Repository>.
 
 =head1 AUTHOR
 
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
+Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2010-2012 Philippe Bruhat (BooK), all rights reserved.
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
 
-=head1 LICENSE
-
-This documentation is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

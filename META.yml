@@ -3,48 +3,35 @@ abstract: 'Perl interface to Git repositories'
 author:
   - 'Philippe Bruhat (BooK) <book@cpan.org>'
 build_requires:
-  Test::More: 0
+  File::Find: 0
+  File::Path: 0
+  Test::More: 0.88
+  constant: 0
+  overload: 0
 configure_requires:
-  Module::Build: 0.38
-dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112621'
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300005, CPAN::Meta::Converter version 2.112621'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Git-Repository
-provides:
-  Git::Repository:
-    file: lib/Git/Repository.pm
-    version: 1.300
-  Git::Repository::Command:
-    file: lib/Git/Repository/Command.pm
-    version: 1.18
-  Git::Repository::Log:
-    file: lib/Git/Repository/Log.pm
-    version: 1.02
-  Git::Repository::Log::Iterator:
-    file: lib/Git/Repository/Log/Iterator.pm
-    version: 1.04
-  Git::Repository::Plugin:
-    file: lib/Git/Repository/Plugin.pm
-    version: 1.02
-  Git::Repository::Plugin::Log:
-    file: lib/Git/Repository/Plugin/Log.pm
-    version: 1.02
-  Test::Git:
-    file: lib/Test/Git.pm
-    version: 1.02
 requires:
   Carp: 0
+  Config: 0
   Cwd: 0
-  File::Path: 0
+  Exporter: 0
   File::Spec: 0
+  File::Temp: 0
   IO::Handle: 0
-  List::Util: 0
   Scalar::Util: 0
-  System::Command: 1.05
+  System::Command: 0
+  Test::Builder: 0
+  perl: 5.006
+  strict: 0
+  warnings: 0
 resources:
-  license: http://dev.perl.org/licenses/
-  repository: http://github.com/book/Git-Repository
-version: 1.300
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=Git-Repository
+  repository: http://github.com/book/Git-Repository.git
+version: 1.301

@@ -1,11 +1,12 @@
 package Git::Repository::Plugin;
+{
+  $Git::Repository::Plugin::VERSION = '1.301';
+}
 
 use strict;
 use warnings;
 use 5.006;
 use Carp;
-
-our $VERSION = '1.02';
 
 sub install {
     my ( $class, @keywords ) = @_;
@@ -28,11 +29,19 @@ sub _keywords {
 
 1;
 
+# ABSTRACT: Base class for Git::Repository plugins
+
+
 __END__
+=pod
 
 =head1 NAME
 
 Git::Repository::Plugin - Base class for Git::Repository plugins
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -74,10 +83,6 @@ If called with an empty list, will install all available keywords.
 When creating a plugin, the new keywords that are added by the plugin
 to L<Git::Repository> must be returned by a C<_keywords()> method.
 
-=head1 AUTHOR
-
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
-
 =head1 ACKNOWLEDGEMENTS
 
 Thanks to Todd Rinalo, who wanted to add more methods to
@@ -86,20 +91,22 @@ the minimalism of L<Git::Repository>.
 
 After a not-so-good design using @ISA (so L<Git::Repository> would
 I<inherit> the extra methods), further discussions with Aristotle
-Pagaltzis and a quick peek at Dancer's plugin management helped me
-come up with the current design. Thank you Aristotle and the Dancer
+Pagaltzis and a quick peek at L<Dancer>'s plugin management helped me
+come up with the current design. Thank you Aristotle and the L<Dancer>
 team.
 
 Further improvements to the plugin system proposed by Aristotle Pagaltzis.
 
-=head1 COPYRIGHT
+=head1 AUTHOR
 
-Copyright 2010 Philippe Bruhat (BooK).
+Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

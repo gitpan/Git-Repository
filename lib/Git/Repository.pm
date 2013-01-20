@@ -1,4 +1,7 @@
 package Git::Repository;
+{
+  $Git::Repository::VERSION = '1.301';
+}
 
 use warnings;
 use strict;
@@ -11,8 +14,6 @@ use Scalar::Util qw( looks_like_number );
 
 use Git::Repository::Command;
 
-our $VERSION = '1.300';
-
 # a few simple accessors
 for my $attr (qw( git_dir work_tree options )) {
     no strict 'refs';
@@ -21,12 +22,10 @@ for my $attr (qw( git_dir work_tree options )) {
 
 # backward compatible aliases
 sub repo_path {
-    carp "repo_path() is obsolete, please use git_dir() instead";
-    goto &git_dir;
+    croak "repo_path() is obsolete, please use git_dir() instead";
 }
 sub wc_path {
-    carp "wc_path() is obsolete, please use work_tree() instead";
-    goto &work_tree;
+    croak "wc_path() is obsolete, please use work_tree() instead";
 }
 
 # helper function
@@ -78,10 +77,15 @@ sub new {
     # ignore 'input' option during object creation
     my $input = delete $options->{input};
 
+    # die if deprecated parameters are given
+    croak "repository is obsolete, please use git_dir instead"
+        if defined delete $arg{repository};
+    croak "working_copy is obsolete, please use work_tree instead"
+        if defined delete $arg{working_copy};
+
     # setup default options
-    # accept older for backward compatibility
-    my ($git_dir) = grep {defined} delete @arg{qw( git_dir repository )};
-    my ($work_tree) = grep {defined} delete @arg{qw( work_tree working_copy )};
+    my $git_dir   = delete $arg{git_dir};
+    my $work_tree = delete $arg{work_tree};
 
     croak "Unknown parameters: @{[keys %arg]}" if keys %arg;
 
@@ -159,28 +163,9 @@ sub new {
     return $self;
 }
 
+# create() is now fully deprecated
 sub create {
-    my ( $class, @args ) = @_;
-    my @output = $class->run(@args);
-    my $gitdir;
-
-    # create() is now deprecated
-    carp "create() is deprecated, please use run() instead";
-
-    # git init or clone until v1.7.1 (inclusive)
-    if ( $output[0] =~ /^(?:Reinitialized existing|Initialized empty) Git repository in (.*)/ ) {
-        $gitdir = $1;
-    }
-
-    # git clone after v1.7.1
-    elsif ( $output[0] =~ /Cloning into (bare repository )?(.*)\.\.\./ ) {
-        $gitdir = $1 ? $2 : File::Spec->catdir( $2, '.git' );
-    }
-
-    # some other command (no git repository created)
-    else {return}
-
-    return $class->new( git_dir => $gitdir, grep { ref eq 'HASH' } @args );
+    croak "create() is deprecated, see Git::Repository::Tutorial for better alternatives";
 }
 
 #
@@ -299,11 +284,19 @@ sub version_ge {
 
 1;
 
+# ABSTRACT: Perl interface to Git repositories
+
+
 __END__
+=pod
 
 =head1 NAME
 
 Git::Repository - Perl interface to Git repositories
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -376,9 +369,7 @@ any later version.
 
 See L<Git::Repository::Tutorial> for more code examples.
 
-=head1 CONSTRUCTORS
-
-There are two ways to create L<Git::Repository> objects:
+=head1 CONSTRUCTOR
 
 =head2 new( %args, $options )
 
@@ -439,29 +430,16 @@ Note that on some systems, some git commands may close standard input
 on startup, which will cause a C<SIGPIPE>. L<Git::Repository::Command>
 will raise an exception.
 
-=head2 create( @cmd )
+To create a Git repository and obtain a L<Git::Repository> object
+pointing to it, simply do it in two steps:
 
-B<The C<create()> method is deprecated, and will go away in the future.>
-
-Runs a repository initialization command (like C<init> or C<clone>) and
-returns a L<Git::Repository> object pointing to it. C<@cmd> may contain
-a hashref with options (see L<Git::Repository::Command>.
-
-Do not use the I<-q> option on such commands. C<create()> needs to parse
-their output to find the path to the repository.
-
-C<create()> also accepts a reference to an option hash which will be
-used to set up the returned L<Git::Repository> instance.
-
-Now that C<create()> is deprecated, instead of:
-
-    $r = Git::Repository->create( ... );
-
-simply do it in two steps:
-
+    # run a clone or init command without an instance,
+    # using options like cwd
     Git::Repository->run( ... );
+    
+    # obtain a Git::Repository instance
+    # on the resulting repository
     $r = Git::Repository->new( ... );
-
 
 =head1 METHODS
 
@@ -495,22 +473,10 @@ or C<129> (usage message), C<run()> will C<die()>.
 
 Returns the repository path.
 
-=head2 repo_path()
-
-For backward compatibility with versions 1.06 and before, C<repo_path()>
-it provided as an alias to C<git_dir()>. It will be removed in a future
-version.
-
 =head2 work_tree()
 
 Returns the working copy path.
 Used as current working directory by L<Git::Repository::Command>.
-
-=head2 wc_path()
-
-For backward compatibility with versions 1.06 and before, C<wc_path()>
-it provided as an alias to C<work_tree()>. It will be removed in a future
-version.
 
 =head2 options()
 
@@ -613,6 +579,13 @@ just prefix the fully qualified class name with a C<+>. For example:
 
 See L<Git::Repository::Plugin> about how to create a new plugin.
 
+=head1 ACKNOWLEDGEMENTS
+
+Thanks to Todd Rinalo, who wanted to add more methods to
+L<Git::Repository>, which made me look for a solution that would preserve
+the minimalism of L<Git::Repository>. The C<::Plugin> interface is what
+I came up with.
+
 =head1 OTHER PERL GIT WRAPPERS
 
 (This section was written in June 2010. The other Git wrappers have
@@ -651,7 +624,6 @@ It doesn't allow calling C<git init> or C<git clone>.
 The C<command_bidi_pipe> function especially has problems:
 L<http://kerneltrap.org/mailarchive/git/2008/10/24/3789584>
 
-
 =head2 Git::Class
 
 Depends on Moose, which seems an unnecessary dependency for a simple
@@ -663,15 +635,9 @@ Although it supports C<git init> and C<git clone>
 porcelain commands, and provides no way to control bidirectional commands
 (such as C<git commit-tree>).
 
-
 =head2 Git::Wrapper
 
 Doesn't support streams or bidirectional commands.
-
-
-=head1 AUTHOR
-
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
 
 =head1 BUGS
 
@@ -690,7 +656,6 @@ automatically be notified of progress on your bug as I make changes.
 You can find documentation for this module with the perldoc command.
 
     perldoc Git::Repository
-
 
 You can also look for information at:
 
@@ -714,22 +679,16 @@ L<http://search.cpan.org/dist/Git-Repository>
 
 =back
 
+=head1 AUTHOR
 
-=head1 ACKNOWLEDGEMENTS
+Philippe Bruhat (BooK) <book@cpan.org>
 
-Thanks to Todd Rinalo, who wanted to add more methods to
-L<Git::Repository>, which made me look for a solution that would preserve
-the minimalism of L<Git::Repository>. The C<::Plugin> interface is what
-I came up with.
+=head1 COPYRIGHT AND LICENSE
 
-=head1 COPYRIGHT
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
 
-Copyright 2010-2012 Philippe Bruhat (BooK), all rights reserved.
-
-=head1 LICENSE
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

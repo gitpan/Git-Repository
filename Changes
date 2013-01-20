@@ -1,5 +1,14 @@
 Revision history for Git-Repository
 
+1.301 Mon Jan 21 2013
+        [DEPRECATION]
+        - the following Git::Repository methods are obsolete,
+          and will die when called: create, wc_path, repo_path
+        - the following parameters to Git::Repository->new are obsolete,
+          and will cause the constructor to die: repository, working_copy
+        [PACKAGING]
+        - switch to Dist::Zilla for maintaining the distribution
+
 1.300 Mon Jan  7 2012
         [ENHANCEMENTS]
         - fixed support for overloaded objects (e.g. Path::Class objects)

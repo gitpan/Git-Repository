@@ -1,4 +1,7 @@
 package Git::Repository::Plugin::Log;
+{
+  $Git::Repository::Plugin::Log::VERSION = '1.301';
+}
 
 use warnings;
 use strict;
@@ -9,8 +12,6 @@ our @ISA      = qw( Git::Repository::Plugin );
 sub _keywords { qw( log ) }
 
 use Git::Repository::Log::Iterator;
-
-our $VERSION = '1.02';
 
 sub log {
 
@@ -33,11 +34,19 @@ sub log {
 
 1;
 
+# ABSTRACT: Add a log() method to Git::Repository
+
+
 __END__
+=pod
 
 =head1 NAME
 
 Git::Repository::Plugin::Log - Add a log() method to Git::Repository
+
+=head1 VERSION
+
+version 1.301
 
 =head1 SYNOPSIS
 
@@ -74,10 +83,6 @@ Note that this can be very memory-intensive.
 See L<Git::Repository::Log::Iterator>'s documentation for details about
 how parameters are handled.
 
-=head1 AUTHOR
-
-Philippe Bruhat (BooK), C<< <book at cpan.org> >>
-
 =head1 ACKNOWLEDGEMENTS
 
 Many thanks to Aristotle Pagaltzis who requested a C<log()> method in
@@ -89,14 +94,16 @@ L<Git::Repository::Plugin>,
 L<Git::Repository::Log::Iterator>,
 L<Git::Repository::Log>.
 
-=head1 COPYRIGHT
+=head1 AUTHOR
 
-Copyright 2010 Philippe Bruhat (BooK).
+Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 
