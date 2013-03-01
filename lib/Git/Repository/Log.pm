@@ -1,6 +1,6 @@
 package Git::Repository::Log;
 {
-  $Git::Repository::Log::VERSION = '1.301';
+  $Git::Repository::Log::VERSION = '1.302';
 }
 
 use strict;
@@ -16,6 +16,7 @@ for my $attr (
     author_localtime author_tz author_gmtime
     committer_localtime committer_tz committer_gmtime
     raw_message message subject body
+    gpgsig mergetag
     extra
     )
     )
@@ -48,7 +49,8 @@ sub new {
     # compute other keys
     $self->{raw_message} = $self->{message};
     $self->{message} =~ s/^    //gm;
-    @{$self}{qw( subject body )} = ( split( /\n/m, $self->{message}, 2 ), '' );
+    @{$self}{qw( subject body )}
+        = ( split( /\n/m, $self->{message}, 2 ), '', '' );
     $self->{body} =~ s/\A\s//gm;
 
     # author and committer details
@@ -78,7 +80,7 @@ Git::Repository::Log - Class representing git log data
 
 =head1 VERSION
 
-version 1.301
+version 1.302
 
 =head1 SYNOPSIS
 
@@ -111,7 +113,7 @@ C<git log --pretty=raw>):
 
 =item commit
 
-The commit id (ignore the extra information added by I<--decorate>).
+The commit id (ignoring the extra information added by I<--decorate>).
 
 =item tree
 
@@ -133,11 +135,23 @@ The committer information.
 
 The log message (including the 4-space indent normally output by B<git log>).
 
+=item gpgsig
+
+The commit signature.
+
+=item mergetag
+
+The mergetag information.
+
 =item extra
 
 Any extra text that might be added by extra options passed to B<git log>.
 
 =back
+
+Note that since C<git tag --pretty=raw> does not provide the C<encoding>
+header (and provides the message properly decoded), this information
+will not be available via L<Git::Repository::Plugin::Log>.
 
 =head1 ACCESSORS
 
@@ -209,6 +223,16 @@ The unindented version of the log message.
 =item subject
 
 =item body
+
+=back
+
+=head2 Signature-related information
+
+=over 4
+
+=item gpgsig
+
+=item mergetag
 
 =back
 

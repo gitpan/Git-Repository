@@ -30,10 +30,12 @@ t/25-plugins.t
 t/26-overloaded_objects.t
 t/30-log.t
 t/40-plugin-log.t
+t/41-multiline-log.t
 t/Git/Repository/Plugin/Hello.pm
 t/Git/Repository/Plugin/Hello2.pm
 t/MyGit/Hello.pm
 t/config
+t/multiline.bundle
 t/pod-coverage.t
 t/pod.t
 t/sudo.pl

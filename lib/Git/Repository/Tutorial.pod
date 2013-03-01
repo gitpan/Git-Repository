@@ -11,7 +11,7 @@ Git::Repository::Tutorial - Control git from Perl using Git::Repository
 
 =head1 VERSION
 
-version 1.301
+version 1.302
 
 =head1 SYNOPSIS
 
