@@ -34,12 +34,12 @@ my %WriteMakefileArgs = (
     "File::Temp" => 0,
     "IO::Handle" => 0,
     "Scalar::Util" => 0,
-    "System::Command" => 0,
+    "System::Command" => "1.100",
     "Test::Builder" => 0,
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.302",
+  "VERSION" => "1.303",
   "test" => {
     "TESTS" => "t/*.t"
   }

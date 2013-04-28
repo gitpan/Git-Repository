@@ -1,6 +1,6 @@
 package Git::Repository;
 {
-  $Git::Repository::VERSION = '1.302';
+  $Git::Repository::VERSION = '1.303';
 }
 
 use warnings;
@@ -187,12 +187,13 @@ sub run {
     my @c;
     @cmd = grep { ref eq 'CODE' ? !push @c, $_ : 1 } @cmd;
 
+    local $Carp::CarpLevel = 1;
+
     # run the command (pass the instance if called as an instance method)
     my $command
         = Git::Repository::Command->new( ref $self ? $self : (), @cmd );
 
     # return the output or die
-    local $Carp::CarpLevel = 1;
     return $command->final_output(@c);
 }
 
@@ -296,7 +297,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.302
+version 1.303
 
 =head1 SYNOPSIS
 
@@ -608,10 +609,9 @@ Even though it works well for me and others, L<Git::Repository> has its
 own shortcomings: it I<is> a I<low-level interface to Git commands>,
 anything complex requires you to deal with input/output handles,
 it provides no high-level interface to generate actual Git commands
-or process the output of commands (but have a look at the plugins),
-it doesn't fully work under Win32 yet, etc. One the following modules
-may therefore be better suited for your needs, depending on what you're
-trying to achieve.
+or process the output of commands (but have a look at the plugins), etc.
+One the following modules may therefore be better suited for your needs,
+depending on what you're trying to achieve.
 
 =head2 Git.pm
 
@@ -642,10 +642,8 @@ Doesn't support streams or bidirectional commands.
 =head1 BUGS
 
 Since version 1.17, L<Git::Repository> delegates the actual command
-execution to L<System::Command>. Win32 support for that module is
-currently very bad (the test suite hangs in a few places).
-If you'd like better Win32 support for L<Git::Repository>, help me improve
-L<System::Command>!
+execution to L<System::Command>, which has better support for Win32
+since version 1.100.
 
 Please report any bugs or feature requests to C<bug-git-repository at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Git-Repository>.  I will be notified, and then you'll
