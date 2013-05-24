@@ -1,6 +1,6 @@
 package Git::Repository;
 {
-  $Git::Repository::VERSION = '1.303';
+  $Git::Repository::VERSION = '1.304';
 }
 
 use warnings;
@@ -74,8 +74,9 @@ sub new {
         $options = $self->{options} = shift @o || {};
     }
 
-    # ignore 'input' option during object creation
+    # ignore 'input' and 'fatal' options during object creation
     my $input = delete $options->{input};
+    my $fatal = delete $options->{fatal};
 
     # die if deprecated parameters are given
     croak "repository is obsolete, please use git_dir instead"
@@ -159,6 +160,7 @@ sub new {
 
     # put back the ignored option
     $options->{input} = $input if defined $input;
+    $options->{fatal} = $fatal if defined $fatal;
 
     return $self;
 }
@@ -184,8 +186,8 @@ sub run {
     my ( $self, @cmd ) = @_;
 
     # split the args to get the optional callbacks
-    my @c;
-    @cmd = grep { ref eq 'CODE' ? !push @c, $_ : 1 } @cmd;
+    my @cb;
+    @cmd = grep { ref eq 'CODE' ? !push @cb, $_ : 1 } @cmd;
 
     local $Carp::CarpLevel = 1;
 
@@ -194,7 +196,7 @@ sub run {
         = Git::Repository::Command->new( ref $self ? $self : (), @cmd );
 
     # return the output or die
-    return $command->final_output(@c);
+    return $command->final_output(@cb);
 }
 
 #
@@ -297,7 +299,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.303
+version 1.304
 
 =head1 SYNOPSIS
 
@@ -423,7 +425,7 @@ So this:
     );
 
 is equivalent to explicitly passing the option hash to each
-C<run()> or C<command()>.
+C<run()> or C<command()> call.
 
 It probably makes no sense to set the C<input> option in C<new()>,
 but L<Git::Repository> won't stop you.
@@ -443,6 +445,10 @@ pointing to it, simply do it in two steps:
     $r = Git::Repository->new( ... );
 
 =head1 METHODS
+
+=for Pod::Coverage     create
+    repo_path
+    wc_path
 
 L<Git::Repository> supports the following methods:
 
@@ -467,8 +473,11 @@ successively to each line of output. The line being processed is in C<$_>,
 but the coderef must still return the result string (like C<map>).
 
 If the git command printed anything on stderr, it will be printed as
-warnings. If the git sub-process exited with status C<128> (fatal error),
-or C<129> (usage message), C<run()> will C<die()>.
+warnings. For convenience, if the git sub-process exited with status
+C<128> (fatal error), or C<129> (usage message), C<run()> will C<die()>.
+
+The exit status of the command that was just run is accessible as usual
+using C<<< $? >> 8 >>>. See L<perlvar> for details about C<$?>.
 
 =head2 git_dir()
 
@@ -626,7 +635,8 @@ L<http://kerneltrap.org/mailarchive/git/2008/10/24/3789584>
 
 =head2 Git::Class
 
-Depends on Moose, which seems an unnecessary dependency for a simple
+L<Git::Class>
+depends on Moose, which seems an unnecessary dependency for a simple
 wrapper around Git. The startup penalty could become significant for
 command-line tools.
 
@@ -637,7 +647,19 @@ porcelain commands, and provides no way to control bidirectional commands
 
 =head2 Git::Wrapper
 
-Doesn't support streams or bidirectional commands.
+L<Git::Wrapper>
+doesn't support streams or bidirectional commands.
+
+=head2 Git::Sub
+
+(This description was added for completeness in May 2013.)
+
+L<Git::Sub> appeared in 2013, as a set of Git-specific L<System::Sub>
+functions. It provide a nice set of C<git::> functions, and has some
+limitations (due to the way L<System::Sub> itself works) which don't
+impact most Git commands.
+
+L<Git::Sub> doesn't support working with streams.
 
 =head1 BUGS
 

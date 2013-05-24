@@ -1,6 +1,6 @@
 package Test::Git;
 {
-  $Test::Git::VERSION = '1.303';
+  $Test::Git::VERSION = '1.304';
 }
 
 use strict;
@@ -8,7 +8,7 @@ use warnings;
 
 use Exporter;
 use Test::Builder;
-use Git::Repository 1.15;
+use Git::Repository;    # 1.15
 use File::Temp qw( tempdir );
 use Cwd qw( cwd );
 use Carp;
@@ -39,11 +39,12 @@ sub test_repository {
     my $temp = $args{temp} || [ CLEANUP => 1 ];    # File::Temp options
     my $init = $args{init} || [];                  # git init options
     my $opts = $args{git}  || {};                  # Git::Repository options
+    my $safe = { %$opts, fatal => [] };            # ignore 'fatal' settings
 
     # git init requires at least Git 1.5.0
-    my $git_version = Git::Repository->version($opts);
-    croak "test_repository() requires git >= 1.5.0 (this is only $git_version)"
-      if Git::Repository->version_lt( '1.5.0', $opts );
+    my $git_version = Git::Repository->version($safe);
+    croak "test_repository() requires git >= 1.5.0.rc1 (this is only $git_version)"
+      if Git::Repository->version_lt( '1.5.0.rc1', $safe );
 
     # create a temporary directory to host our repository
     my $dir = tempdir(@$temp);
@@ -51,7 +52,7 @@ sub test_repository {
     # create the git repository there
     my $home = cwd;
     chdir $dir or croak "Can't chdir to $dir: $!";
-    Git::Repository->run( init => @$init, $opts );
+    Git::Repository->run( init => @$init, $safe );
 
     # create the Git::Repository object
     my $gitdir = Git::Repository->run(qw( rev-parse --git-dir ));
@@ -74,7 +75,7 @@ Test::Git - Helper functions for test scripts using Git
 
 =head1 VERSION
 
-version 1.303
+version 1.304
 
 =head1 SYNOPSIS
 
@@ -145,7 +146,7 @@ To leave the repository in its location after the end of the test:
     test_repository( temp => [ CLEANUP => 0 ] );
 
 Note that since C<test_repository()> uses C<git init> to create the test
-repository, it requires at least Git version C<1.5.0>.
+repository, it requires at least Git version C<1.5.0.rc1>.
 
 =head1 AUTHOR
 

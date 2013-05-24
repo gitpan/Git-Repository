@@ -1,6 +1,6 @@
 package Git::Repository::Log;
 {
-  $Git::Repository::Log::VERSION = '1.303';
+  $Git::Repository::Log::VERSION = '1.304';
 }
 
 use strict;
@@ -80,7 +80,7 @@ Git::Repository::Log - Class representing git log data
 
 =head1 VERSION
 
-version 1.303
+version 1.304
 
 =head1 SYNOPSIS
 
