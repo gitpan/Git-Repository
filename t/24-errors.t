@@ -10,13 +10,17 @@ has_git('1.5.0.rc1');
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
+$ENV{GIT_AUTHOR_NAME}     = 'Test Author';
+$ENV{GIT_AUTHOR_EMAIL}    = 'test.author@example.com';
+$ENV{GIT_COMMITTER_NAME}  = 'Test Committer';
+$ENV{GIT_COMMITTER_EMAIL} = 'test.committer@example.com';
 
 # a place to put a git repository
 my $r;
 
 # a fake git binary used for setting the exit status
 my $exit;
-{
+eval {
     my $version = Git::Repository->version;
     ( my $fh, $exit ) = tempfile(
         DIR    => 't',
@@ -24,14 +28,21 @@ my $exit;
       ( SUFFIX => '.bat' )x!! MSWin32,
     );
     print {$fh} MSWin32 ? << "WIN32" : << "UNIX";
-\@$^X -e "shift =~ /version/ ? print qq{git version $version\n} : exit shift" %1 %2
+\@$^X -e "shift =~ /version/ ? print qq{git version $version\\n} : exit shift" -- %1 %2
 WIN32
 #!$^X
-shift =~ /version/ ? print "git version $version\n"
+shift =~ /version/ ? print "git version $version\\n"
                    : exit shift;
 UNIX
-    close $fh;
-    chmod 0755, $exit;
+    close $fh or diag "close $exit failed: $!";
+    chmod 0755, $exit or diag "chmod $exit failed: $!";
+};
+
+# make sure the binary is available
+if ( !-x $exit ) {
+    diag "Skipping 'git exit' tests: $exit is not "
+        . ( -e _ ? 'executable' : 'available' );
+    $exit = '';
 }
 
 # capture all warnings
@@ -110,6 +121,10 @@ my @tests = (
     {   cmd  => [ rm => 'does-not-exist', { fatal => -128, quiet => 1 } ],
         exit => 128,
     },
+);
+
+# tests that depend on $exit
+push @tests, (
 
     # test some fatal combinations
     {   cmd  => [ exit => 123, { git => $exit } ],
@@ -131,6 +146,11 @@ my @tests = (
         exit => 126,
     },
 
+)x!! $exit;
+
+# test case where EVERY exit status is fatal
+push @tests, (
+
     # FATALITY
     {   test_repo => [ git => { fatal => [ 0 .. 255 ] } ],
         cmd       => ['version'],
@@ -141,6 +161,10 @@ my @tests = (
         cmd  => [ version => { fatal => '-0' } ],
         exit => 0,
     },
+);
+
+# more tests that depend on $exit
+push @tests, (
 
     # "!0" is a shortcut for 1..255
     {   test_repo => [],
@@ -157,7 +181,7 @@ my @tests = (
         exit => 142,
     },
 
-);
+)x!! $exit;
 
 # count the warnings we'll check
 @warnings = map @{ $_->{warnings} ||= [] }, @tests;

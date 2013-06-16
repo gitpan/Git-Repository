@@ -1,6 +1,6 @@
 package Git::Repository::Plugin::Log;
 {
-  $Git::Repository::Plugin::Log::VERSION = '1.304';
+  $Git::Repository::Plugin::Log::VERSION = '1.305';
 }
 
 use warnings;
@@ -46,7 +46,7 @@ Git::Repository::Plugin::Log - Add a log() method to Git::Repository
 
 =head1 VERSION
 
-version 1.304
+version 1.305
 
 =head1 SYNOPSIS
 

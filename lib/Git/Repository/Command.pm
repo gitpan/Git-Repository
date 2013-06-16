@@ -1,6 +1,6 @@
 package Git::Repository::Command;
 {
-  $Git::Repository::Command::VERSION = '1.304';
+  $Git::Repository::Command::VERSION = '1.305';
 }
 
 use strict;
@@ -205,7 +205,7 @@ Git::Repository::Command - Command objects for running git
 
 =head1 VERSION
 
-version 1.304
+version 1.305
 
 =head1 SYNOPSIS
 

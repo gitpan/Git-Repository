@@ -1,6 +1,6 @@
 package Git::Repository;
 {
-  $Git::Repository::VERSION = '1.304';
+  $Git::Repository::VERSION = '1.305';
 }
 
 use warnings;
@@ -299,7 +299,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.304
+version 1.305
 
 =head1 SYNOPSIS
 
@@ -426,6 +426,8 @@ So this:
 
 is equivalent to explicitly passing the option hash to each
 C<run()> or C<command()> call.
+The documentation for L<Git::Repository::Command> lists all
+available options.
 
 It probably makes no sense to set the C<input> option in C<new()>,
 but L<Git::Repository> won't stop you.
@@ -475,6 +477,8 @@ but the coderef must still return the result string (like C<map>).
 If the git command printed anything on stderr, it will be printed as
 warnings. For convenience, if the git sub-process exited with status
 C<128> (fatal error), or C<129> (usage message), C<run()> will C<die()>.
+The exit status values for which C<run()> dies can be modified using
+the C<fatal> option (see L<Git::Repository::Command> for details).
 
 The exit status of the command that was just run is accessible as usual
 using C<<< $? >> 8 >>>. See L<perlvar> for details about C<$?>.
