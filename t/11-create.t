@@ -16,6 +16,7 @@ plan tests => my $tests + my $between + my $extra;
 
 # clean up the environment
 delete @ENV{qw( GIT_DIR GIT_WORK_TREE )};
+$ENV{LC_ALL} = 'C';
 my $home = cwd();
 
 # a place to put a git repository

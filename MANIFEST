@@ -41,3 +41,4 @@ t/release-distmeta.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
 t/sudo.pl
+weaver.ini

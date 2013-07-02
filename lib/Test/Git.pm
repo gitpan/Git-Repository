@@ -1,6 +1,6 @@
 package Test::Git;
 {
-  $Test::Git::VERSION = '1.305';
+  $Test::Git::VERSION = '1.306';
 }
 
 use strict;
@@ -75,7 +75,7 @@ Test::Git - Helper functions for test scripts using Git
 
 =head1 VERSION
 
-version 1.305
+version 1.306
 
 =head1 SYNOPSIS
 
@@ -148,16 +148,28 @@ To leave the repository in its location after the end of the test:
 Note that since C<test_repository()> uses C<git init> to create the test
 repository, it requires at least Git version C<1.5.0.rc1>.
 
+=head1 BUGS
+
+Please report any bugs or feature requests on the bugtracker website
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=Git-Repository or by email to
+bug-git-repository@rt.cpan.org.
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
+
 =head1 AUTHOR
 
 Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 COPYRIGHT
 
-This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
 
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =cut
 

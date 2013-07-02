@@ -1,6 +1,6 @@
 package Git::Repository::Plugin;
 {
-  $Git::Repository::Plugin::VERSION = '1.305';
+  $Git::Repository::Plugin::VERSION = '1.306';
 }
 
 use strict;
@@ -41,7 +41,7 @@ Git::Repository::Plugin - Base class for Git::Repository plugins
 
 =head1 VERSION
 
-version 1.305
+version 1.306
 
 =head1 SYNOPSIS
 
@@ -97,16 +97,28 @@ team.
 
 Further improvements to the plugin system proposed by Aristotle Pagaltzis.
 
+=head1 BUGS
+
+Please report any bugs or feature requests on the bugtracker website
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=Git-Repository or by email to
+bug-git-repository@rt.cpan.org.
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
+
 =head1 AUTHOR
 
 Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 COPYRIGHT
 
-This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
 
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =cut
 

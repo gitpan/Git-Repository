@@ -1,6 +1,6 @@
 package Git::Repository::Command;
 {
-  $Git::Repository::Command::VERSION = '1.305';
+  $Git::Repository::Command::VERSION = '1.306';
 }
 
 use strict;
@@ -205,7 +205,7 @@ Git::Repository::Command - Command objects for running git
 
 =head1 VERSION
 
-version 1.305
+version 1.306
 
 =head1 SYNOPSIS
 
@@ -276,6 +276,10 @@ should be an array reference with the command and parameters, like this:
 =item C<cwd>
 
 The I<current working directory> in which the git command will be run.
+(C<chdir()> will be called just before lauching the command.)
+
+If not provided, it will default to the root of the Git repository work
+tree (if the repository is bare, then no C<chdir()> will be performed).
 
 =item C<env>
 
@@ -427,16 +431,33 @@ Many thanks go also to Chris Williams (BINGOS) for pointing me towards
 perlmonks posts by ikegami that contained crucial elements to a working
 MSWin32 implementation.
 
+In the end, it was Christian Walder (MITHALDU) who helped me finalize
+Win32 support for L<System::Command> through a quick round of edit
+(on my Linux box) and testing (on his Windows box) during the Perl QA
+Hackathon 2013 in Lancaster.
+
+=head1 BUGS
+
+Please report any bugs or feature requests on the bugtracker website
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=Git-Repository or by email to
+bug-git-repository@rt.cpan.org.
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
+
 =head1 AUTHOR
 
 Philippe Bruhat (BooK) <book@cpan.org>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 COPYRIGHT
 
-This software is copyright (c) 2013 by Philippe Bruhat (BooK).
+Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
 
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =cut
 
