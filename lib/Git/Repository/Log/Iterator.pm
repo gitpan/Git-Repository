@@ -1,6 +1,6 @@
 package Git::Repository::Log::Iterator;
 {
-  $Git::Repository::Log::Iterator::VERSION = '1.306';
+  $Git::Repository::Log::Iterator::VERSION = '1.307';
 }
 
 use strict;
@@ -84,7 +84,7 @@ Git::Repository::Log::Iterator - Split a git log stream into records
 
 =head1 VERSION
 
-version 1.306
+version 1.307
 
 =head1 SYNOPSIS
 

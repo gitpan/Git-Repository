@@ -1,6 +1,6 @@
 package Git::Repository::Command;
 {
-  $Git::Repository::Command::VERSION = '1.306';
+  $Git::Repository::Command::VERSION = '1.307';
 }
 
 use strict;
@@ -80,9 +80,9 @@ sub _is_git {
         if !( defined $git && -x $git );
 
     # try to run it
-    my ( $pid, $in, $out, $err )
-        = System::Command->spawn( $git, @args, '--version' );
-    my $version = do { local $/ = "\n"; <$out>; };
+    my $cmd = System::Command->new( $git, @args, '--version' );
+    my $version = do { local $/ = "\n"; $cmd->stdout->getline; };
+    $cmd->close;
 
     # does it really look like git?
     return $binary{$type}{$key}{$binary}{$args}
@@ -205,7 +205,7 @@ Git::Repository::Command - Command objects for running git
 
 =head1 VERSION
 
-version 1.306
+version 1.307
 
 =head1 SYNOPSIS
 
@@ -397,8 +397,6 @@ following code:
 
 C<$fh> is opened and points to the output of the git subcommand, while
 the anonymous L<Git::Repository::Command> object has been destroyed.
-Once C<$fh> is destroyed, the subprocess will be reaped, thus avoiding
-zombies.
 
 After the call to C<close()>, the following attributes will be defined:
 
