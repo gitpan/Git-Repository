@@ -11,7 +11,7 @@ Git::Repository::Tutorial - Control git from Perl using Git::Repository
 
 =head1 VERSION
 
-version 1.307
+version 1.308
 
 =head1 SYNOPSIS
 
@@ -95,6 +95,24 @@ it:
 
 In case of an error or warning, L<Git::Repository> will C<croak()> or
 C<carp()> appropriately.
+
+=head2 Properly quote options
+
+It's common to work out the proper string of Git commands needed to
+achieve your goal in the shell, before actually turning them into calls
+to C<< Git::Repository->run >>.
+
+Some options might require quoting, to properly get the arguments to
+Git through the shell:
+
+    # shell
+    $ git log --since='Fri Jul 26 19:34:15 2013 +0200' --grep='report ticket'
+
+Such quoting is of course not needed with L<Git::Repository>:
+
+    $since = 'Fri Jul 26 19:34:15 2013 +0200';
+    $grep  = 'report ticket';
+    my $cmd = $r->command( log => "--since=$since", "--grep=$grep" );
 
 =head2 Silence warnings for some Git commands
 

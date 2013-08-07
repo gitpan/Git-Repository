@@ -1,6 +1,6 @@
 package Git::Repository;
 {
-  $Git::Repository::VERSION = '1.307';
+  $Git::Repository::VERSION = '1.308';
 }
 
 use warnings;
@@ -299,7 +299,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.307
+version 1.308
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,6 @@
 package Test::Git;
 {
-  $Test::Git::VERSION = '1.307';
+  $Test::Git::VERSION = '1.308';
 }
 
 use strict;
@@ -75,7 +75,7 @@ Test::Git - Helper functions for test scripts using Git
 
 =head1 VERSION
 
-version 1.307
+version 1.308
 
 =head1 SYNOPSIS
 
