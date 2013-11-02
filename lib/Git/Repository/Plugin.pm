@@ -1,6 +1,6 @@
 package Git::Repository::Plugin;
 {
-  $Git::Repository::Plugin::VERSION = '1.308';
+  $Git::Repository::Plugin::VERSION = '1.309';
 }
 
 use strict;
@@ -11,12 +11,16 @@ use Carp;
 sub install {
     my ( $class, @keywords ) = @_;
     no strict 'refs';
+
+    # get the list of keywords to install
     my %keyword = map { $_ => 1 } my @all_keywords = $class->_keywords;
     @keywords = @all_keywords if !@keywords;
     @keywords = grep {
         !( !exists $keyword{$_} and carp "Unknown keyword '$_' in $class" )
     } @keywords;
     carp "No keywords installed from $class" if !@keywords;
+
+    # install keywords
     *{"Git::Repository::$_"} = \&{"$class\::$_"} for @keywords;
 }
 
@@ -41,7 +45,7 @@ Git::Repository::Plugin - Base class for Git::Repository plugins
 
 =head1 VERSION
 
-version 1.308
+version 1.309
 
 =head1 SYNOPSIS
 
@@ -80,12 +84,24 @@ If called with an empty list, will install all available keywords.
 
 =head1 SUBCLASSING
 
-When creating a plugin, the new keywords that are added by the plugin
-to L<Git::Repository> must be returned by a C<_keywords()> method.
+=head2 Adding methods to L<Git::Repository>
+
+When creating a plugin, the new keywords (i.e. methods) that are added
+by the plugin to L<Git::Repository> must be returned by a C<_keywords()>
+method.
+
+=head2 Adding attributes to L<Git::Repository>
+
+L<Git::Repository> is a blessed hash reference.
+
+If extra attributes are needed, the recommended name for the hash key (to
+avoid name clashes between plugins) is C<_plugin_I<name>_I<attribute>>,
+where I<name> is the plugin lowercase name, and I<attribute> is the
+attribute name.
 
 =head1 ACKNOWLEDGEMENTS
 
-Thanks to Todd Rinalo, who wanted to add more methods to
+Thanks to Todd Rinaldo, who wanted to add more methods to
 L<Git::Repository>, which made me look for a solution that would preserve
 the minimalism of L<Git::Repository>.
 

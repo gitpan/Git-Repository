@@ -7,10 +7,7 @@ README
 dist.ini
 lib/Git/Repository.pm
 lib/Git/Repository/Command.pm
-lib/Git/Repository/Log.pm
-lib/Git/Repository/Log/Iterator.pm
 lib/Git/Repository/Plugin.pm
-lib/Git/Repository/Plugin/Log.pm
 lib/Git/Repository/Tutorial.pod
 lib/Test/Git.pm
 t/00-load.t
@@ -29,14 +26,10 @@ t/23-quiet.t
 t/24-errors.t
 t/25-plugins.t
 t/26-overloaded_objects.t
-t/30-log.t
-t/40-plugin-log.t
-t/41-multiline-log.t
 t/Git/Repository/Plugin/Hello.pm
 t/Git/Repository/Plugin/Hello2.pm
 t/MyGit/Hello.pm
 t/config
-t/multiline.bundle
 t/release-distmeta.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
