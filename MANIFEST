@@ -26,6 +26,7 @@ t/23-quiet.t
 t/24-errors.t
 t/25-plugins.t
 t/26-overloaded_objects.t
+t/30-test_repository.t
 t/Git/Repository/Plugin/Hello.pm
 t/Git/Repository/Plugin/Hello2.pm
 t/MyGit/Hello.pm

@@ -1,6 +1,6 @@
 package Test::Git;
 {
-  $Test::Git::VERSION = '1.309';
+  $Test::Git::VERSION = '1.310';
 }
 
 use strict;
@@ -10,6 +10,7 @@ use Exporter;
 use Test::Builder;
 use Git::Repository;    # 1.15
 use File::Temp qw( tempdir );
+use File::Spec::Functions qw( catdir );
 use Cwd qw( cwd );
 use Carp;
 
@@ -35,30 +36,34 @@ sub has_git {
 sub test_repository {
     my %args = @_;
 
+    croak "Can't use both 'init' and 'clone' paramaters"
+        if exists $args{init} && exists $args{clone};
+
     # setup some default values
     my $temp = $args{temp} || [ CLEANUP => 1 ];    # File::Temp options
     my $init = $args{init} || [];                  # git init options
     my $opts = $args{git}  || {};                  # Git::Repository options
     my $safe = { %$opts, fatal => [] };            # ignore 'fatal' settings
+    my $clone = $args{clone};                      # git clone options
 
-    # git init requires at least Git 1.5.0
+    # version check
+    my ( $cmd, $min_version ) = $clone ? ( clone => '1.6.2.rc0' )
+                                       : ( init  => '1.5.0.rc1' );
     my $git_version = Git::Repository->version($safe);
-    croak "test_repository() requires git >= 1.5.0.rc1 (this is only $git_version)"
-      if Git::Repository->version_lt( '1.5.0.rc1', $safe );
+    croak "test_repository( $cmd => ... ) requires git >= $min_version (this is only $git_version)"
+      if Git::Repository->version_lt( $min_version, $safe );
 
     # create a temporary directory to host our repository
     my $dir = tempdir(@$temp);
+    my $cwd = { cwd => $dir };    # option to chdir there
 
     # create the git repository there
-    my $home = cwd;
-    chdir $dir or croak "Can't chdir to $dir: $!";
-    Git::Repository->run( init => @$init, $safe );
+    my @cmd = $clone ? ( clone => @$clone, $dir ) : ( init => @$init, $cwd );
+    Git::Repository->run( @cmd, $safe );
 
     # create the Git::Repository object
-    my $gitdir = Git::Repository->run(qw( rev-parse --git-dir ));
-    my $r = Git::Repository->new( git_dir => $gitdir, $opts );
-    chdir $home or croak "Can't chdir to $home: $!";
-    return $r;
+    my $gitdir = Git::Repository->run( qw( rev-parse --git-dir ), $cwd );
+    return Git::Repository->new( git_dir => catdir( $dir, $gitdir ), $opts );
 }
 
 1;
@@ -75,7 +80,7 @@ Test::Git - Helper functions for test scripts using Git
 
 =head1 VERSION
 
-version 1.309
+version 1.310
 
 =head1 SYNOPSIS
 
@@ -98,6 +103,10 @@ version 1.309
     # and return a Git::Repository object
     my $r = test_repository();
     
+    # clone an existing repository in a temporary location
+    # and return a Git::Repository object
+    my $c = test_repository( clone => [ $url ] );
+
     # run some tests on the repository
     ...
 
@@ -108,7 +117,9 @@ scripts that require the creation and management of a Git repository.
 
 =head1 EXPORTED FUNCTIONS
 
-=head2 has_git( $version, \%options )
+=head2 has_git
+
+    has_git( $version, \%options );
 
 Checks if there is a git binary available, or skips all tests.
 
@@ -121,13 +132,58 @@ accepted by L<Git::Repository> and L<Git::Repository::Command>.
 This function must be called before C<plan()>, as it performs a B<skip_all>
 if requirements are not met.
 
-=head2 test_repository( %options )
+=head2 test_repository
+
+    test_repository( %options );
 
 Creates a new empty git repository in a temporary location, and returns
 a L<Git::Repository> object pointing to it.
 
 This function takes options as a hash. Each key will influence a
 different part of the creation process.
+
+The keys are:
+
+=over 4
+
+=item temp
+
+Array reference containing parameters to L<File::Temp> C<tempdir> function.
+
+Default: C<[ CLEANUP => 1 ]>
+
+=item init
+
+Array reference containing parameters to C<git init>.
+Must not contain the target directory parameter, which is provided
+by C<test_repository()> (via L<File::Temp>).
+
+Default: C<[]>
+
+The C<init> option is only supported with Git versions higher or
+equal to 1.6.2.rc0.
+
+=item clone
+
+Array reference containing parameters to C<git clone>.
+Must not contain the target directory parameter, which is provided
+by C<test_repository()> (via L<File::Temp>).
+
+Note that C<clone> and C<init> are mutually exclusive and that
+C<test_repository()> will croak if both are provided.
+This option has no default value, since at least a Git URL must be
+provided to the C<clone> option.
+
+The C<clone> option is only supported with Git versions higher or
+equal to 1.6.2.rc0.
+
+=item git
+
+Hash reference containing options for L<Git::Repository>.
+
+Default: C<{}>
+
+=back
 
 This call is the equivalent of the default call with no options:
 
@@ -164,7 +220,7 @@ Philippe Bruhat (BooK) <book@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2014 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 

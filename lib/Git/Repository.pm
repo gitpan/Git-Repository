@@ -1,6 +1,6 @@
 package Git::Repository;
 {
-  $Git::Repository::VERSION = '1.309';
+  $Git::Repository::VERSION = '1.310';
 }
 
 use warnings;
@@ -299,7 +299,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.309
+version 1.310
 
 =head1 SYNOPSIS
 
@@ -322,12 +322,16 @@ version 1.309
     Git::Repository->run( clone => $url, $dir, ... );
     $r = Git::Repository->new( work_tree => $dir );
 
-    # run commands
-    # - get the full output (no errput)
-    $output = $r->run(@cmd);
+    # provide an option hash for Git::Repository::Command
+    # (see Git::Repository::Command for all available options)
+    $r = Git::Repository->new( ..., \%options );
 
-    # - get the full output as a list of lines (no errput)
-    @output = $r->run(@cmd);
+    # run commands
+    # - get the full output (no errput) passing options for this command only
+    $output = $r->run( @cmd, \%options );
+
+    # - get the full output as a list of lines (no errput), with options
+    @output = $r->run( @cmd, \%options );
 
     # - process the output with callbacks
     $output = $r->run( @cmd, sub {...} );
@@ -335,7 +339,7 @@ version 1.309
 
     # - obtain a Git::Repository::Command object
     #   (see Git::Repository::Command for details)
-    $cmd = $r->command(@cmd);
+    $cmd = $r->command( @cmd, \%options );
 
     # obtain version information
     my $version = $r->version();
@@ -374,7 +378,9 @@ See L<Git::Repository::Tutorial> for more code examples.
 
 =head1 CONSTRUCTOR
 
-=head2 new( %args, $options )
+=head2 new
+
+    Git::Repository->new( %args, $options );
 
 Create a new L<Git::Repository> object, based on an existing Git repository.
 
@@ -412,22 +418,26 @@ corresponding L<Git::Repository> instance.
 
 So this:
 
-    my $options = {
-        git => '/path/to/some/other/git',
-        env => {
-            GIT_COMMITTER_EMAIL => 'book@cpan.org',
-            GIT_COMMITTER_NAME  => 'Philippe Bruhat (BooK)',
-        },
-    };
     my $r = Git::Repository->new(
+        # parameters
         work_tree => $dir,
-        $options
+        # options
+        {   git => '/path/to/some/other/git',
+            env => {
+                GIT_COMMITTER_EMAIL => 'book@cpan.org',
+                GIT_COMMITTER_NAME  => 'Philippe Bruhat (BooK)',
+            },
+        }
     );
 
 is equivalent to explicitly passing the option hash to each
 C<run()> or C<command()> call.
 The documentation for L<Git::Repository::Command> lists all
 available options.
+
+Note that Git::Repository and L<Git::Repository::Command> take
+great care in finding the option hash wherever it may be in C<@_>,
+and to merge multiple option hashes if more than one is provided.
 
 It probably makes no sense to set the C<input> option in C<new()>,
 but L<Git::Repository> won't stop you.
@@ -454,7 +464,10 @@ pointing to it, simply do it in two steps:
 
 L<Git::Repository> supports the following methods:
 
-=head2 command( @cmd )
+=head2 command
+
+    Git::Repository->command( @cmd );
+    $r->command( @cmd );
 
 Runs the git sub-command and options, and returns a L<Git::Repository::Command>
 object pointing to the sub-process running the command.
@@ -462,7 +475,10 @@ object pointing to the sub-process running the command.
 As described in the L<Git::Repository::Command> documentation, C<@cmd>
 may also contain a hashref containing options for the command.
 
-=head2 run( @cmd )
+=head2 run
+
+    Git::Repository->run( @cmd );
+    $r->run( @cmd );
 
 Runs the command and returns the output as a string in scalar context,
 or as a list of lines in list context. Also accepts a hashref of options.
@@ -483,20 +499,20 @@ the C<fatal> option (see L<Git::Repository::Command> for details).
 The exit status of the command that was just run is accessible as usual
 using C<<< $? >> 8 >>>. See L<perlvar> for details about C<$?>.
 
-=head2 git_dir()
+=head2 git_dir
 
 Returns the repository path.
 
-=head2 work_tree()
+=head2 work_tree
 
 Returns the working copy path.
 Used as current working directory by L<Git::Repository::Command>.
 
-=head2 options()
+=head2 options
 
 Return the option hash that was passed to C<< Git::Repository->new() >>.
 
-=head2 version()
+=head2 version
 
 Return the version of git, as given by C<git --version>.
 
@@ -719,7 +735,7 @@ Philippe Bruhat (BooK) <book@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2014 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 

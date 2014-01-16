@@ -1,6 +1,6 @@
 package Git::Repository::Plugin;
 {
-  $Git::Repository::Plugin::VERSION = '1.309';
+  $Git::Repository::Plugin::VERSION = '1.310';
 }
 
 use strict;
@@ -45,7 +45,7 @@ Git::Repository::Plugin - Base class for Git::Repository plugins
 
 =head1 VERSION
 
-version 1.309
+version 1.310
 
 =head1 SYNOPSIS
 
@@ -76,7 +76,9 @@ with all the methods they provide, or only a selection of them.
 
 L<Git::Repository::Plugin> provides a single method:
 
-=head2 install( @keywords )
+=head2 install
+
+    $plugin->install( @keywords );
 
 Install all keywords provided in the L<Git::Repository> namespace.
 
@@ -129,7 +131,7 @@ Philippe Bruhat (BooK) <book@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2014 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 

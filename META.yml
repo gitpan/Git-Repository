@@ -23,6 +23,7 @@ requires:
   Cwd: 0
   Exporter: 0
   File::Spec: 0
+  File::Spec::Functions: 0
   File::Temp: 0
   IO::Handle: 0
   Scalar::Util: 0
@@ -34,4 +35,4 @@ requires:
 resources:
   bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=Git-Repository
   repository: http://github.com/book/Git-Repository.git
-version: 1.309
+version: 1.310

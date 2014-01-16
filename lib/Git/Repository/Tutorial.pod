@@ -11,7 +11,7 @@ Git::Repository::Tutorial - Control git from Perl using Git::Repository
 
 =head1 VERSION
 
-version 1.309
+version 1.310
 
 =head1 SYNOPSIS
 
@@ -83,7 +83,7 @@ Note that the old C<create()> method is obsolete and has been removed.
 Cloning works the same way:
 
     Git::Repository->run( clone => $url => $dir );
-    $r = Git::Repository->new( $dir );
+    $r = Git::Repository->new( work_tree => $dir );
 
 =head2 Run a simple command
 
@@ -406,7 +406,7 @@ Philippe Bruhat (BooK) <book@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2014 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 

@@ -1,6 +1,6 @@
 package Git::Repository::Command;
 {
-  $Git::Repository::Command::VERSION = '1.309';
+  $Git::Repository::Command::VERSION = '1.310';
 }
 
 use strict;
@@ -205,7 +205,7 @@ Git::Repository::Command - Command objects for running git
 
 =head1 VERSION
 
-version 1.309
+version 1.310
 
 =head1 SYNOPSIS
 
@@ -251,7 +251,9 @@ through L<Git::Repository>.
 As a subclass of L<System::Command>,
 L<Git::Repository::Command> supports the following methods:
 
-=head2 new( @cmd )
+=head2 new
+
+    Git::Repository::Command->new( @cmd );
 
 Runs a B<git> command with the parameters in C<@cmd>.
 
@@ -336,12 +338,16 @@ keys in later hashes taking precedence over keys in earlier hashes.
 The L<Git::Repository::Command> object returned by C<new()> has a
 number of attributes defined (see below).
 
-=head2 close()
+=head2 close
+
+    $cmd->close();
 
 Close all pipes to the child process, and collects exit status, etc.
 and defines a number of attributes (see below).
 
-=head2 final_output( @callbacks )
+=head2 final_output
+
+    $cmd->final_output( @callbacks );
 
 Collect all the output, and terminate the command.
 
@@ -368,23 +374,23 @@ The object returned by C<new()> will have the following attributes defined:
 
 =over 4
 
-=item cmdline()
+=item cmdline
 
 Return the command-line actually executed, as a list of strings.
 
-=item pid()
+=item pid
 
 The PID of the underlying B<git> command.
 
-=item stdin()
+=item stdin
 
 A filehandle opened in write mode to the child process' standard input.
 
-=item stdout()
+=item stdout
 
 A filehandle opened in read mode to the child process' standard output.
 
-=item stderr()
+=item stderr
 
 A filehandle opened in read mode to the child process' standard error output.
 
@@ -402,15 +408,15 @@ After the call to C<close()>, the following attributes will be defined:
 
 =over 4
 
-=item exit()
+=item exit
 
 The exit status of the underlying B<git> command.
 
-=item core()
+=item core
 
 A boolean value indicating if the command dumped core.
 
-=item signal()
+=item signal
 
 The signal, if any, that killed the command.
 
@@ -450,7 +456,7 @@ Philippe Bruhat (BooK) <book@cpan.org>
 
 =head1 COPYRIGHT
 
-Copyright 2010-2013 Philippe Bruhat (BooK), all rights reserved.
+Copyright 2010-2014 Philippe Bruhat (BooK), all rights reserved.
 
 =head1 LICENSE
 
