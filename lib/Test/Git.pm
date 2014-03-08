@@ -1,8 +1,5 @@
 package Test::Git;
-{
-  $Test::Git::VERSION = '1.310';
-}
-
+$Test::Git::VERSION = '1.311';
 use strict;
 use warnings;
 
@@ -80,7 +77,7 @@ Test::Git - Helper functions for test scripts using Git
 
 =head1 VERSION
 
-version 1.310
+version 1.311
 
 =head1 SYNOPSIS
 
@@ -150,7 +147,7 @@ The keys are:
 
 Array reference containing parameters to L<File::Temp> C<tempdir> function.
 
-Default: C<[ CLEANUP => 1 ]>
+Default: C<<[ CLEANUP => 1 ]>>
 
 =item init
 
@@ -203,6 +200,12 @@ To leave the repository in its location after the end of the test:
 
 Note that since C<test_repository()> uses C<git init> to create the test
 repository, it requires at least Git version C<1.5.0.rc1>.
+
+=head1 ACKNOWLEDGEMENTS
+
+The C<clone> option and capability of C<test_repository()> owes a lot
+to Nathan Nutter (NNUTTER), who wanted to be able to clone into a test
+repository.
 
 =head1 BUGS
 

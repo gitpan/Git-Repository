@@ -1,8 +1,5 @@
 package Git::Repository::Command;
-{
-  $Git::Repository::Command::VERSION = '1.310';
-}
-
+$Git::Repository::Command::VERSION = '1.311';
 use strict;
 use warnings;
 use 5.006;
@@ -81,7 +78,7 @@ sub _is_git {
 
     # try to run it
     my $cmd = System::Command->new( $git, @args, '--version' );
-    my $version = do { local $/ = "\n"; $cmd->stdout->getline; };
+    my $version = do { local $/ = "\n"; $cmd->stdout->getline; } || '';
     $cmd->close;
 
     # does it really look like git?
@@ -205,7 +202,7 @@ Git::Repository::Command - Command objects for running git
 
 =head1 VERSION
 
-version 1.310
+version 1.311
 
 =head1 SYNOPSIS
 

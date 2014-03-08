@@ -49,7 +49,6 @@ sub pmver {
 }
 
 eval { $v .= pmver('Carp','any version') };
-eval { $v .= pmver('Config','any version') };
 eval { $v .= pmver('Cwd','any version') };
 eval { $v .= pmver('Exporter','any version') };
 eval { $v .= pmver('ExtUtils::MakeMaker','6.30') };
@@ -59,11 +58,16 @@ eval { $v .= pmver('File::Spec','any version') };
 eval { $v .= pmver('File::Spec::Functions','any version') };
 eval { $v .= pmver('File::Temp','any version') };
 eval { $v .= pmver('IO::Handle','any version') };
+eval { $v .= pmver('Pod::Coverage::TrustPod','any version') };
 eval { $v .= pmver('Scalar::Util','any version') };
 eval { $v .= pmver('System::Command','1.103') };
 eval { $v .= pmver('Test::Builder','any version') };
+eval { $v .= pmver('Test::CPAN::Meta','any version') };
 eval { $v .= pmver('Test::More','0.88') };
+eval { $v .= pmver('Test::Pod','1.41') };
+eval { $v .= pmver('Test::Pod::Coverage','1.08') };
 eval { $v .= pmver('constant','any version') };
+eval { $v .= pmver('lib','any version') };
 eval { $v .= pmver('overload','any version') };
 eval { $v .= pmver('strict','any version') };
 eval { $v .= pmver('version','0.9901') };

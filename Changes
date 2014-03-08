@@ -1,5 +1,14 @@
 Revision history for Git-Repository
 
+1.311 Sun Mar 9 2014
+        [ENHANCEMENTS]
+        - avoid warnings from _is_git() when we get nothing out of "git"
+        [DOCUMENTATION]
+        - pod syntax fix
+        - fix typo in Todd Rinaldo's name
+        - acknowledge Nathan Nutter's help in designing the clone option
+          to test_repository()
+
 1.310 Fri Jan 17 2014
         [ENHANCEMENTS]
         - add support for a 'clone' option in test_repository()
@@ -273,7 +282,7 @@ Revision history for Git-Repository
           (version 1.7.1.209.gd60ad81 is smaller than 1.7.1.1.1.g66bd8ab)
         [TESTS]
         - skip tests that fail between between versions 1.7.1 and 1.7.1.1
-          (thanks to Sébastien Aperghis-Tramoni for the private report)
+          (thanks to SÃ©bastien Aperghis-Tramoni for the private report)
         - fix abs_path dying on Win32 with a path to a non-existent file
           (again)
 
