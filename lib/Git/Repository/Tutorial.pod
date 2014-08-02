@@ -11,7 +11,7 @@ Git::Repository::Tutorial - Control git from Perl using Git::Repository
 
 =head1 VERSION
 
-version 1.311
+version 1.312
 
 =head1 SYNOPSIS
 
@@ -71,12 +71,20 @@ Sometime, you'll need to create the Git repository from scratch:
     Git::Repository->run( init => $dir );
     $r = Git::Repository->new( work_tree => $dir );
 
-    # any older git requires the command to be run in the work tree,
-    # so we use the cwd option
+Any git older than 1.6.5 requires the command to be run in the work tree,
+so we use the C<cwd> option:
+
+    # git version 1.5.0.rc1 and above
     Git::Repository->run( init => { cwd => $dir } );
     $r = Git::Repository->new( work_tree => $dir );
 
-Note that the old C<create()> method is obsolete and has been removed.
+    # older git versions
+    Git::Repository->run( 'init-db' => { cwd => $dir } );
+    $r = Git::Repository->new( work_tree => $dir );
+
+Note that the old C<create()> method
+is obsolete (as of L<Git::Repository> 1.18, from April 16, 2011)
+and has been removed (as of L<Git::Repository> 1.301, January 21, 2013).
 
 =head2 Clone a repository
 
@@ -258,7 +266,7 @@ The above C<run()> call does not die, and output the following warning:
 The exit status (as given by C<<< $? >> 8 >>>) is C<1>.
 
 To force C<run()> to die when the Git command exits with status C<1>,
-use the C<fatal> option (added in version 1.304):
+use the C<fatal> option (added in version 1.304, May 25, 2013):
 
     $r->run( checkout => 'does-not-exist', { fatal => 1 } );
 

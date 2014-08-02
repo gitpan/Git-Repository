@@ -1,5 +1,5 @@
 package Git::Repository;
-$Git::Repository::VERSION = '1.311';
+$Git::Repository::VERSION = '1.312';
 use warnings;
 use strict;
 use 5.006;
@@ -296,7 +296,7 @@ Git::Repository - Perl interface to Git repositories
 
 =head1 VERSION
 
-version 1.311
+version 1.312
 
 =head1 SYNOPSIS
 
@@ -613,7 +613,7 @@ L<Git::Repository>, which made me look for a solution that would preserve
 the minimalism of L<Git::Repository>. The C<::Plugin> interface is what
 I came up with.
 
-=head1 OTHER PERL GIT WRAPPERS
+=head1 OTHER PERL GIT WRAPPERS (a.k.a. SEE ALSO)
 
 (This section was written in June 2010. The other Git wrappers have
 probably evolved since that time.)

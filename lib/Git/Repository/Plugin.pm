@@ -1,5 +1,5 @@
 package Git::Repository::Plugin;
-$Git::Repository::Plugin::VERSION = '1.311';
+$Git::Repository::Plugin::VERSION = '1.312';
 use strict;
 use warnings;
 use 5.006;
@@ -42,7 +42,7 @@ Git::Repository::Plugin - Base class for Git::Repository plugins
 
 =head1 VERSION
 
-version 1.311
+version 1.312
 
 =head1 SYNOPSIS
 
